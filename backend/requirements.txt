@@ -4,3 +4,7 @@ pydantic
 python-dotenv
 jinja2
 docker
+websockets
+aiofiles
+certbot
+certbot-dns-cloudflare

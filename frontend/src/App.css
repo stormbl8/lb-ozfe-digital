@@ -110,3 +110,34 @@ button {
 button:hover {
   background-color: #2980b9;
 }
+
+/* Add these styles for the dashboard */
+.stat-card-container {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.stat-card {
+  background-color: var(--card-bg);
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
+}
+
+.stat-card-title {
+  font-size: 16px;
+  color: var(--text-color);
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.stat-card-value {
+  font-size: 36px;
+  font-weight: bold;
+  margin: 0;
+}

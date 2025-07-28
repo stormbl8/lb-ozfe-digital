@@ -1,0 +1,253 @@
+2025-07-28 20:01:27,333:DEBUG:certbot._internal.main:certbot version: 4.1.1
+2025-07-28 20:01:27,333:DEBUG:certbot._internal.main:Location of certbot entry point: /usr/local/bin/certbot
+2025-07-28 20:01:27,333:DEBUG:certbot._internal.main:Arguments: ['--dns-cloudflare', '--dns-cloudflare-credentials', '/etc/letsencrypt/credentials/cloudflare.ini', '--non-interactive', '--agree-tos', '--email', 'volkan.oezdemir@ozfe-digital.de', '-d', 'test.trafil.de', '--config-dir', '/data/certs/letsencrypt', '--work-dir', '/data/certs/work', '--logs-dir', '/data/certs/logs']
+2025-07-28 20:01:27,333:DEBUG:certbot._internal.main:Discovered plugins: PluginsRegistry(PluginEntryPoint#dns-cloudflare,PluginEntryPoint#manual,PluginEntryPoint#null,PluginEntryPoint#standalone,PluginEntryPoint#webroot)
+2025-07-28 20:01:27,473:DEBUG:certbot._internal.log:Root logging level set at 30
+2025-07-28 20:01:27,484:DEBUG:certbot._internal.plugins.selection:Requested authenticator dns-cloudflare and installer None
+2025-07-28 20:01:27,484:DEBUG:certbot._internal.plugins.selection:Single candidate plugin: * dns-cloudflare
+Description: Obtain certificates using a DNS TXT record (if you are using Cloudflare for DNS).
+Interfaces: Authenticator, Plugin
+Entry point: EntryPoint(name='dns-cloudflare', value='certbot_dns_cloudflare._internal.dns_cloudflare:Authenticator', group='certbot.plugins')
+Initialized: <certbot_dns_cloudflare._internal.dns_cloudflare.Authenticator object at 0x7f62e9bed610>
+Prep: True
+2025-07-28 20:01:27,485:DEBUG:certbot._internal.plugins.selection:Selected authenticator <certbot_dns_cloudflare._internal.dns_cloudflare.Authenticator object at 0x7f62e9bed610> and installer None
+2025-07-28 20:01:27,485:INFO:certbot._internal.plugins.selection:Plugins selected: Authenticator dns-cloudflare, Installer None
+2025-07-28 20:01:27,543:DEBUG:acme.client:Sending GET request to https://acme-v02.api.letsencrypt.org/directory.
+2025-07-28 20:01:27,545:DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): acme-v02.api.letsencrypt.org:443
+2025-07-28 20:01:28,096:DEBUG:urllib3.connectionpool:https://acme-v02.api.letsencrypt.org:443 "GET /directory HTTP/1.1" 200 995
+2025-07-28 20:01:28,097:DEBUG:acme.client:Received response:
+HTTP 200
+Server: nginx
+Date: Mon, 28 Jul 2025 20:01:28 GMT
+Content-Type: application/json
+Content-Length: 995
+Connection: keep-alive
+Cache-Control: public, max-age=0, no-cache
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=604800
+
+{
+  "Yz9OmueyCvA": "https://community.letsencrypt.org/t/adding-random-entries-to-the-directory/33417",
+  "keyChange": "https://acme-v02.api.letsencrypt.org/acme/key-change",
+  "meta": {
+    "caaIdentities": [
+      "letsencrypt.org"
+    ],
+    "profiles": {
+      "classic": "https://letsencrypt.org/docs/profiles#classic",
+      "shortlived": "https://letsencrypt.org/docs/profiles#shortlived (not yet generally available)",
+      "tlsserver": "https://letsencrypt.org/docs/profiles#tlsserver"
+    },
+    "termsOfService": "https://letsencrypt.org/documents/LE-SA-v1.5-February-24-2025.pdf",
+    "website": "https://letsencrypt.org"
+  },
+  "newAccount": "https://acme-v02.api.letsencrypt.org/acme/new-acct",
+  "newNonce": "https://acme-v02.api.letsencrypt.org/acme/new-nonce",
+  "newOrder": "https://acme-v02.api.letsencrypt.org/acme/new-order",
+  "renewalInfo": "https://acme-v02.api.letsencrypt.org/acme/renewal-info",
+  "revokeCert": "https://acme-v02.api.letsencrypt.org/acme/revoke-cert"
+}
+2025-07-28 20:01:28,098:DEBUG:acme.client:Requesting fresh nonce
+2025-07-28 20:01:28,099:DEBUG:acme.client:Sending HEAD request to https://acme-v02.api.letsencrypt.org/acme/new-nonce.
+2025-07-28 20:01:28,269:DEBUG:urllib3.connectionpool:https://acme-v02.api.letsencrypt.org:443 "HEAD /acme/new-nonce HTTP/1.1" 200 0
+2025-07-28 20:01:28,270:DEBUG:acme.client:Received response:
+HTTP 200
+Server: nginx
+Date: Mon, 28 Jul 2025 20:01:28 GMT
+Connection: keep-alive
+Cache-Control: public, max-age=0, no-cache
+Link: <https://acme-v02.api.letsencrypt.org/directory>;rel="index"
+Replay-Nonce: var7yfTF5izLOyn49OVdP6_vDP8dr62pnjQ8llQ4xY4njZNUXmY
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=604800
+
+
+2025-07-28 20:01:28,271:DEBUG:acme.client:Storing nonce: var7yfTF5izLOyn49OVdP6_vDP8dr62pnjQ8llQ4xY4njZNUXmY
+2025-07-28 20:01:28,272:DEBUG:acme.client:JWS payload:
+b'{\n  "contact": [\n    "mailto:volkan.oezdemir@ozfe-digital.de"\n  ],\n  "termsOfServiceAgreed": true\n}'
+2025-07-28 20:01:28,275:DEBUG:acme.client:Sending POST request to https://acme-v02.api.letsencrypt.org/acme/new-acct:
+{
+  "protected": "eyJhbGciOiAiUlMyNTYiLCAiandrIjogeyJuIjogImszOVI2TDQ0VVNPVTV6MHlSOUJDbGQ3YmVHeEZONkJNRlUtelVscXJFZmd5S3l0TEFPYjBKVHVhSTd1Vmxkc0ctMVRVNDlYWVdoazFzb0daVi1hWlhkUndsclVLLVpVaUY1UzRUaUJ2a0NtVFBUYXlxT2FrTTJzV205NWhrNnBjdTgtT1psVkl4emMzM1ZSZ005Tno1cDl4cHBBNUtWYlFsdkxkeXgwaE0yWk02ajJIREFfLXlEdU00Q0dLUVJvSFhFaFB1QU12LTlxUlpUclNxTDZNb25EZmhPSXR3NjNEcGh5NXdDUVpYdTJ0VVIzRG9jNHM5T2VaSGNvWU54SExDUXNqRXpBOENydGtuelBCQWIwZ0YtaTROc0tJLV9IOTctWXBtc0w1dEhRRld5UlNWZkxPTDVLVGszUUlIOWZKOUhKeUdpMjF2VlV1S1VxQWwyOENBdyIsICJlIjogIkFRQUIiLCAia3R5IjogIlJTQSJ9LCAibm9uY2UiOiAidmFyN3lmVEY1aXpMT3luNDlPVmRQNl92RFA4ZHI2MnBualE4bGxRNHhZNG5qWk5VWG1ZIiwgInVybCI6ICJodHRwczovL2FjbWUtdjAyLmFwaS5sZXRzZW5jcnlwdC5vcmcvYWNtZS9uZXctYWNjdCJ9",
+  "signature": "WhVpiLHXZ2JTuDM4_uL4Gu0RINSqCjLDVH6cRmIewCSK-8AjUJikHwSp7C8Wi6bUW7NYP62n3GjXztHOitDftmbHjKpmhvG17UWEDriqFEEKjhxoMTs9vLHdYhA1DuKo68Rf8WtOk6ZGdsnUqr_TGDnQrcKC8K7ltI7bWrkOPEFVhL7XPOhW_j1kU3Gf6k0BUSPtCEr2FGy0d44-p-97X7bQY3VyrHHSRmYguusxI6KNooJThDFIkCb6CCbaIuO2D87Q6WhYh1_945mjQDBEuah8zkeQbFyrgToFSOxGEBYgn1-Jnrv3Jkm4jeBqMwvYF9PPawV-nfrkTmUhwzpDRw",
+  "payload": "ewogICJjb250YWN0IjogWwogICAgIm1haWx0bzp2b2xrYW4ub2V6ZGVtaXJAb3pmZS1kaWdpdGFsLmRlIgogIF0sCiAgInRlcm1zT2ZTZXJ2aWNlQWdyZWVkIjogdHJ1ZQp9"
+}
+2025-07-28 20:01:28,509:DEBUG:urllib3.connectionpool:https://acme-v02.api.letsencrypt.org:443 "POST /acme/new-acct HTTP/1.1" 201 477
+2025-07-28 20:01:28,511:DEBUG:acme.client:Received response:
+HTTP 201
+Server: nginx
+Date: Mon, 28 Jul 2025 20:01:28 GMT
+Content-Type: application/json
+Content-Length: 477
+Connection: keep-alive
+Boulder-Requester: 2559162731
+Cache-Control: public, max-age=0, no-cache
+Link: <https://acme-v02.api.letsencrypt.org/directory>;rel="index", <https://letsencrypt.org/documents/LE-SA-v1.5-February-24-2025.pdf>;rel="terms-of-service"
+Location: https://acme-v02.api.letsencrypt.org/acme/acct/2559162731
+Replay-Nonce: oks-By9R-k6aYgWA2km_YVK5xHtuKQvYkV39dry8CMsSZcogkdk
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=604800
+
+{
+  "key": {
+    "kty": "RSA",
+    "n": "k39R6L44USOU5z0yR9BCld7beGxFN6BMFU-zUlqrEfgyKytLAOb0JTuaI7uVldsG-1TU49XYWhk1soGZV-aZXdRwlrUK-ZUiF5S4TiBvkCmTPTayqOakM2sWm95hk6pcu8-OZlVIxzc33VRgM9Nz5p9xppA5KVbQlvLdyx0hM2ZM6j2HDA_-yDuM4CGKQRoHXEhPuAMv-9qRZTrSqL6MonDfhOItw63Dphy5wCQZXu2tUR3Doc4s9OeZHcoYNxHLCQsjEzA8CrtknzPBAb0gF-i4NsKI-_H97-YpmsL5tHQFWyRSVfLOL5KTk3QIH9fJ9HJyGi21vVUuKUqAl28CAw",
+    "e": "AQAB"
+  },
+  "createdAt": "2025-07-28T20:01:28.584492748Z",
+  "status": "valid"
+}
+2025-07-28 20:01:28,512:DEBUG:acme.client:Storing nonce: oks-By9R-k6aYgWA2km_YVK5xHtuKQvYkV39dry8CMsSZcogkdk
+2025-07-28 20:01:28,541:DEBUG:certbot._internal.display.obj:Notifying user: Account registered.
+2025-07-28 20:01:28,542:DEBUG:certbot._internal.main:Picked account: <Account(RegistrationResource(body=Registration(key=JWKRSA(key=<ComparableRSAKey(<cryptography.hazmat.bindings._rust.openssl.rsa.RSAPublicKey object at 0x7f62e94ed5d0>)>), contact=(), agreement=None, status='valid', terms_of_service_agreed=None, only_return_existing=None, external_account_binding=None), uri='https://acme-v02.api.letsencrypt.org/acme/acct/2559162731', new_authzr_uri=None, terms_of_service='https://letsencrypt.org/documents/LE-SA-v1.5-February-24-2025.pdf'), 07866b9b63e415af82c2f237a02b8281, Meta(creation_dt=datetime.datetime(2025, 7, 28, 20, 1, 28, tzinfo=<UTC>), creation_host='6eafbf59ef60', register_to_eff=None))>
+2025-07-28 20:01:28,557:DEBUG:certbot._internal.display.obj:Notifying user: Requesting a certificate for test.trafil.de
+2025-07-28 20:01:28,558:DEBUG:acme.client:JWS payload:
+b'{\n  "identifiers": [\n    {\n      "type": "dns",\n      "value": "test.trafil.de"\n    }\n  ]\n}'
+2025-07-28 20:01:28,560:DEBUG:acme.client:Sending POST request to https://acme-v02.api.letsencrypt.org/acme/new-order:
+{
+  "protected": "eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vYWNtZS12MDIuYXBpLmxldHNlbmNyeXB0Lm9yZy9hY21lL2FjY3QvMjU1OTE2MjczMSIsICJub25jZSI6ICJva3MtQnk5Ui1rNmFZZ1dBMmttX1lWSzV4SHR1S1F2WWtWMzlkcnk4Q01zU1pjb2drZGsiLCAidXJsIjogImh0dHBzOi8vYWNtZS12MDIuYXBpLmxldHNlbmNyeXB0Lm9yZy9hY21lL25ldy1vcmRlciJ9",
+  "signature": "SoIe8ARnv7DRucbuDpQ45DIgqt43fEcmhA2_AyeUMHchemia8uJk3OHrv3yeUu2gdW7jfv3PvSDwqUknEA4gM-VcwqnRDHOCDy60mzO6-_DmYOzWBj8sL01g_aQSHYWJfj3YcJNs7kma4JlU79m_blOyTm8NB3JTw1ndqYnsrd_AM89OY7P5zP_Bg8uLG0T_4sqd5YIDw4ZTxaOr1c3d5Wwb_8PM6hNOc_EZsmIHX1_obTRfwAl2rJgQgq7LBsRXN0aF4iAgR6SpWLob3JurEY9GjaBRcwkT8OY0kCQ_cYxNlmAkdAm-uOg-tACGjhT9IBYr2mU1Q1QAVaYcUdMTmg",
+  "payload": "ewogICJpZGVudGlmaWVycyI6IFsKICAgIHsKICAgICAgInR5cGUiOiAiZG5zIiwKICAgICAgInZhbHVlIjogInRlc3QudHJhZmlsLmRlIgogICAgfQogIF0KfQ"
+}
+2025-07-28 20:01:28,854:DEBUG:urllib3.connectionpool:https://acme-v02.api.letsencrypt.org:443 "POST /acme/new-order HTTP/1.1" 201 348
+2025-07-28 20:01:28,855:DEBUG:acme.client:Received response:
+HTTP 201
+Server: nginx
+Date: Mon, 28 Jul 2025 20:01:28 GMT
+Content-Type: application/json
+Content-Length: 348
+Connection: keep-alive
+Boulder-Requester: 2559162731
+Cache-Control: public, max-age=0, no-cache
+Link: <https://acme-v02.api.letsencrypt.org/directory>;rel="index"
+Location: https://acme-v02.api.letsencrypt.org/acme/order/2559162731/411912071681
+Replay-Nonce: oks-By9RIUvsebgwaNSeL7tuvGG94NRxVdugboNt-fQRUPRPLU4
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=604800
+
+{
+  "status": "pending",
+  "expires": "2025-08-04T20:01:28Z",
+  "identifiers": [
+    {
+      "type": "dns",
+      "value": "test.trafil.de"
+    }
+  ],
+  "authorizations": [
+    "https://acme-v02.api.letsencrypt.org/acme/authz/2559162731/560377017381"
+  ],
+  "finalize": "https://acme-v02.api.letsencrypt.org/acme/finalize/2559162731/411912071681"
+}
+2025-07-28 20:01:28,856:DEBUG:acme.client:Storing nonce: oks-By9RIUvsebgwaNSeL7tuvGG94NRxVdugboNt-fQRUPRPLU4
+2025-07-28 20:01:28,858:DEBUG:acme.client:JWS payload:
+b''
+2025-07-28 20:01:28,860:DEBUG:acme.client:Sending POST request to https://acme-v02.api.letsencrypt.org/acme/authz/2559162731/560377017381:
+{
+  "protected": "eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vYWNtZS12MDIuYXBpLmxldHNlbmNyeXB0Lm9yZy9hY21lL2FjY3QvMjU1OTE2MjczMSIsICJub25jZSI6ICJva3MtQnk5UklVdnNlYmd3YU5TZUw3dHV2R0c5NE5SeFZkdWdib050LWZRUlVQUlBMVTQiLCAidXJsIjogImh0dHBzOi8vYWNtZS12MDIuYXBpLmxldHNlbmNyeXB0Lm9yZy9hY21lL2F1dGh6LzI1NTkxNjI3MzEvNTYwMzc3MDE3MzgxIn0",
+  "signature": "J7gxq3BQB3Sx_czMumTwi7u1r5eErMfG-PwDah0YFqmXdlKIU1QEdHcMSL9tCE95jVf6Iifd0bU4EEo3sqxmafEfRo4PtBfVZOq2v4BPruKX7X4kByN43xzUoQZIvvGRBSinuISEhA2gMWK0QxjEplm54BV_3_Jv_Ud_t8wwpe9yAAj70LiBjIZLJDeVRTNCxQw884NeTpLGQImGFxmGcabQj6ssIj8VIR30QzioKf8dRqCqtRgWsC8A0mlEawfU7-kfe6IccwRMBR20_mOT_Ds4ZTJD0ZtxfkSA-ntG4GxJfbT6g4ny7-C85UBXXlcUNPoPBAZwV1zUV17wle4oUQ",
+  "payload": ""
+}
+2025-07-28 20:01:29,030:DEBUG:urllib3.connectionpool:https://acme-v02.api.letsencrypt.org:443 "POST /acme/authz/2559162731/560377017381 HTTP/1.1" 200 822
+2025-07-28 20:01:29,031:DEBUG:acme.client:Received response:
+HTTP 200
+Server: nginx
+Date: Mon, 28 Jul 2025 20:01:29 GMT
+Content-Type: application/json
+Content-Length: 822
+Connection: keep-alive
+Boulder-Requester: 2559162731
+Cache-Control: public, max-age=0, no-cache
+Link: <https://acme-v02.api.letsencrypt.org/directory>;rel="index"
+Replay-Nonce: var7yfTF9EUcnSykSkBx_SEBaEO_-KcdIbGhrmPnk01_uHGGInM
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=604800
+
+{
+  "identifier": {
+    "type": "dns",
+    "value": "test.trafil.de"
+  },
+  "status": "pending",
+  "expires": "2025-08-04T20:01:28Z",
+  "challenges": [
+    {
+      "type": "http-01",
+      "url": "https://acme-v02.api.letsencrypt.org/acme/chall/2559162731/560377017381/aF9yiQ",
+      "status": "pending",
+      "token": "iQ8CgZyCDJ0mlltAKnkYr3KF3qQ0p7htFJDfYgOv2_k"
+    },
+    {
+      "type": "dns-01",
+      "url": "https://acme-v02.api.letsencrypt.org/acme/chall/2559162731/560377017381/2UZEXg",
+      "status": "pending",
+      "token": "iQ8CgZyCDJ0mlltAKnkYr3KF3qQ0p7htFJDfYgOv2_k"
+    },
+    {
+      "type": "tls-alpn-01",
+      "url": "https://acme-v02.api.letsencrypt.org/acme/chall/2559162731/560377017381/hnDrRA",
+      "status": "pending",
+      "token": "iQ8CgZyCDJ0mlltAKnkYr3KF3qQ0p7htFJDfYgOv2_k"
+    }
+  ]
+}
+2025-07-28 20:01:29,031:DEBUG:acme.client:Storing nonce: var7yfTF9EUcnSykSkBx_SEBaEO_-KcdIbGhrmPnk01_uHGGInM
+2025-07-28 20:01:29,032:INFO:certbot._internal.auth_handler:Performing the following challenges:
+2025-07-28 20:01:29,032:INFO:certbot._internal.auth_handler:dns-01 challenge for test.trafil.de
+2025-07-28 20:01:29,033:DEBUG:certbot._internal.error_handler:Encountered exception:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/auth_handler.py", line 88, in handle_authorizations
+    resps = self.auth.perform(achalls)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/plugins/dns_common.py", line 70, in perform
+    self._setup_credentials()
+  File "/usr/local/lib/python3.11/site-packages/certbot_dns_cloudflare/_internal/dns_cloudflare.py", line 69, in _setup_credentials
+    self.credentials = self._configure_credentials(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/plugins/dns_common.py", line 204, in _configure_credentials
+    validator(credentials_configuration)
+  File "/usr/local/lib/python3.11/site-packages/certbot_dns_cloudflare/_internal/dns_cloudflare.py", line 56, in _validate_credentials
+    raise errors.PluginError('{}: dns_cloudflare_email is required when using a Global '
+certbot.errors.PluginError: /etc/letsencrypt/credentials/cloudflare.ini: dns_cloudflare_email is required when using a Global API Key. (should be email address associated with Cloudflare account)
+
+2025-07-28 20:01:29,034:DEBUG:certbot._internal.error_handler:Calling registered functions
+2025-07-28 20:01:29,034:INFO:certbot._internal.auth_handler:Cleaning up challenges
+2025-07-28 20:01:29,037:DEBUG:certbot._internal.log:Exiting abnormally:
+Traceback (most recent call last):
+  File "/usr/local/bin/certbot", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/main.py", line 19, in main
+    return internal_main.main(cli_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/main.py", line 1879, in main
+    return config.func(config, plugins)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/main.py", line 1585, in certonly
+    lineage = _get_and_save_cert(le_client, config, domains, certname, lineage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/main.py", line 143, in _get_and_save_cert
+    lineage = le_client.obtain_and_enroll_certificate(domains, certname)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/client.py", line 524, in obtain_and_enroll_certificate
+    cert, chain, key, _ = self.obtain_certificate(domains)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/client.py", line 425, in obtain_certificate
+    orderr = self._get_order_and_authorizations(csr.data, self.config.allow_subset_of_names)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/client.py", line 503, in _get_order_and_authorizations
+    authzr = self.auth_handler.handle_authorizations(orderr, self.config, best_effort)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/_internal/auth_handler.py", line 88, in handle_authorizations
+    resps = self.auth.perform(achalls)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/plugins/dns_common.py", line 70, in perform
+    self._setup_credentials()
+  File "/usr/local/lib/python3.11/site-packages/certbot_dns_cloudflare/_internal/dns_cloudflare.py", line 69, in _setup_credentials
+    self.credentials = self._configure_credentials(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/certbot/plugins/dns_common.py", line 204, in _configure_credentials
+    validator(credentials_configuration)
+  File "/usr/local/lib/python3.11/site-packages/certbot_dns_cloudflare/_internal/dns_cloudflare.py", line 56, in _validate_credentials
+    raise errors.PluginError('{}: dns_cloudflare_email is required when using a Global '
+certbot.errors.PluginError: /etc/letsencrypt/credentials/cloudflare.ini: dns_cloudflare_email is required when using a Global API Key. (should be email address associated with Cloudflare account)
+2025-07-28 20:01:29,038:ERROR:certbot._internal.log:/etc/letsencrypt/credentials/cloudflare.ini: dns_cloudflare_email is required when using a Global API Key. (should be email address associated with Cloudflare account)

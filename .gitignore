@@ -1,0 +1,3 @@
+*.pem
+*.key
+data/certs/letsencrypt/archive/*

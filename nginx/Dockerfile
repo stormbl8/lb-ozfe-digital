@@ -1,6 +1,6 @@
-FROM nginx:stable-alpine
+# Use the official OWASP image which includes NGINX + ModSecurity + Core Rule Set
+FROM owasp/modsecurity-crs:nginx
 
-# Copy the base config and any initial proxy configs
-COPY conf.d/default.conf /etc/nginx/conf.d/default.conf
-
-# The docker-compose file will mount proxy configs, certs, etc.
+# The base image already has a good default configuration.
+# We just need to ensure our custom proxy configs are copied or mounted.
+# The docker-compose file already handles mounting our configs into /etc/nginx/conf.d/
