@@ -1,0 +1,53 @@
+volumes:
+  nginx_logs:
+
+services:
+  frontend:
+    # ... (no changes here)
+    build: ./frontend
+    container_name: lb-ui-frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build: ./backend
+    container_name: lb-ui-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/nginx_proxy_configs:/data/nginx_proxy_configs
+      - ./data/certs:/data/certs
+      - ./data/waf_rules:/data/waf_rules
+      - nginx_logs:/var/log/nginx
+      # Add this line to mount the config directory
+      - ./data/config:/app/data/config
+    env_file:
+      - .env
+
+  nginx:
+    # ... (no changes here)
+    build: ./nginx
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - app-network
+    volumes:
+      - ./data/nginx_proxy_configs:/etc/nginx/conf.d
+      - ./data/certs/letsencrypt:/etc/letsencrypt
+      - ./data/certs/dummy:/etc/nginx/certs/dummy
+      - ./data/waf_rules:/etc/nginx/waf_rules
+      - nginx_logs:/var/log/nginx
+
+networks:
+  app-network:
+    driver: bridge
