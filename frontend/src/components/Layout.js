@@ -7,12 +7,14 @@ import SecurityIcon from '@mui/icons-material/Security';
 import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ShieldIcon from '@mui/icons-material/Shield';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 const drawerWidth = 260;
 
 const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Proxy Hosts', icon: <DnsIcon />, path: '/services' },
+    { text: 'Server Pools', icon: <GroupWorkIcon />, path: '/pools' },
     { text: 'SSL Certificates', icon: <SecurityIcon />, path: '/certs' },
 ];
 

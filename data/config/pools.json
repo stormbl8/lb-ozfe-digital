@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "name": "frontend",
+    "backend_servers": [
+      {
+        "host": "frontend",
+        "port": 88,
+        "max_fails": 3,
+        "fail_timeout": "10s"
+      }
+    ],
+    "load_balancing_algorithm": "round_robin"
+  }
+]

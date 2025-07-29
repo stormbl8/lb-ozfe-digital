@@ -16,22 +16,30 @@ class BackendServer(BaseModel):
             raise ValueError('Invalid format. Must be a number optionally followed by a unit like "s" or "m".')
         return v
 
-class Service(BaseModel):
+class Pool(BaseModel):
     id: Optional[int] = None
-    
-    service_type: Literal["http", "tcp", "udp"] = "http"
-    listen_port: Optional[int] = None
-    
-    domain_name: Optional[str] = None
+    name: str
     backend_servers: List[BackendServer] = []
     load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash"] = "round_robin"
+
+    @validator('backend_servers')
+    def pool_must_not_be_empty(cls, v):
+        if not v:
+            raise ValueError('Server Pool must have at least one server.')
+        return v
+
+class Service(BaseModel):
+    id: Optional[int] = None
+    service_type: Literal["http", "tcp", "udp"] = "http"
+    listen_port: Optional[int] = None
+    domain_name: Optional[str] = None
+    pool_id: Optional[int] = None
     
     enabled: bool = True
     forward_scheme: str = "http"
-    cache_assets: bool = False
+    
     websockets_support: bool = True
     waf_enabled: bool = False
-    
     certificate_name: str = "dummy"
     force_ssl: bool = False
     http2_support: bool = False
@@ -45,12 +53,6 @@ class Service(BaseModel):
     
     advanced_config: Optional[str] = None
     
-    @validator('backend_servers')
-    def must_not_be_empty(cls, v):
-        if not v:
-            raise ValueError('Backend Server Pool cannot be empty')
-        return v
-    
     @validator('domain_name', always=True)
     def domain_name_required_for_http(cls, v, values):
         if values.get('service_type') == 'http' and not v:
@@ -62,7 +64,8 @@ class Service(BaseModel):
         if values.get('service_type') in ['tcp', 'udp'] and not v:
             raise ValueError('Listen Port is required for TCP/UDP services')
         return v
-
+        
+# --- THIS SECTION HAS BEEN REORDERED ---
 class RateLimitSettings(BaseModel):
     enabled: bool = False
     requests_per_second: int = Field(default=10, gt=0)

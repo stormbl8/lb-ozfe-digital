@@ -11,41 +11,46 @@ import Modal from '../components/Modal';
 
 const API_URL = 'http://localhost:8000/api';
 
-const HealthStatusIndicator = ({ service, healthStatus }) => {
+const HealthStatusIndicator = ({ service, pool, healthStatus }) => {
     if (!service.enabled) {
-        return <><span style={{ color: '#7f8c8d' }}>●</span> Disabled</>;
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#7f8c8d' }}><span style={{ color: '#7f8c8d', marginRight: '8px' }}>●</span> Disabled</Typography>;
     }
-    if (!service.backend_servers || service.backend_servers.length === 0) {
-        return <><span style={{ color: '#f39c12' }}>●</span> No Backends</>;
+    if (!pool || !pool.backend_servers || pool.backend_servers.length === 0) {
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#f39c12' }}><span style={{ color: '#f39c12', marginRight: '8px' }}>●</span> No Backends</Typography>;
     }
 
-    const first_backend = `${service.backend_servers[0].host}:${service.backend_servers[0].port}`;
+    const first_backend = `${pool.backend_servers[0].host}:${pool.backend_servers[0].port}`;
     const status = healthStatus[first_backend];
 
     if (status === 'Online') {
-        return <><span style={{ color: '#2ecc71' }}>●</span> Online</>;
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#2ecc71' }}><span style={{ color: '#2ecc71', marginRight: '8px' }}>●</span> Online</Typography>;
     }
     if (status === 'Offline') {
-        return <><span style={{ color: '#e74c3c' }}>●</span> Offline</>;
+        return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#e74c3c' }}><span style={{ color: '#e74c3c', marginRight: '8px' }}>●</span> Offline</Typography>;
     }
-    return <><span style={{ color: '#bdc3c7' }}>●</span> Unknown</>;
+    return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#bdc3c7' }}><span style={{ color: '#bdc3c7', marginRight: '8px' }}>●</span> Unknown</Typography>;
 };
 
 const Services = () => {
   const [services, setServices] = useState([]);
+  const [pools, setPools] = useState([]);
   const [healthStatus, setHealthStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingService, setEditingService] = useState(null);
 
-  const fetchServices = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/services`);
-      setServices(response.data);
+      const [servicesRes, poolsRes] = await Promise.all([
+          axios.get(`${API_URL}/services`),
+          axios.get(`${API_URL}/pools`),
+      ]);
+      setServices(servicesRes.data);
+      setPools(poolsRes.data);
       setError('');
     } catch (err) {
-      setError('Failed to fetch services.');
+      setError('Failed to fetch services or pools.');
     } finally {
       setLoading(false);
     }
@@ -66,19 +71,19 @@ const Services = () => {
   }, []);
 
   useEffect(() => {
-    fetchServices();
-  }, [fetchServices]);
+    fetchData();
+  }, [fetchData]);
   
   const handleCloseForm = () => {
     setEditingService(null);
-    fetchServices();
+    fetchData();
   };
 
   const handleDelete = async (serviceId, serviceIdentifier) => {
     if (window.confirm(`Are you sure you want to delete the service for ${serviceIdentifier}?`)) {
         try {
             await axios.delete(`${API_URL}/services/${serviceId}`);
-            fetchServices();
+            fetchData();
         } catch (err) {
             setError(`Failed to delete ${serviceIdentifier}: ${err.response?.data?.detail || err.message}`);
         }
@@ -89,12 +94,14 @@ const Services = () => {
     const updatedService = { ...service, enabled: !service.enabled };
     try {
         await axios.put(`${API_URL}/services/${service.id}`, updatedService);
-        fetchServices();
+        fetchData();
     } catch (err) {
         const serviceIdentifier = service.domain_name || `Stream on port ${service.listen_port}`;
         setError(`Failed to update ${serviceIdentifier}: ${err.response?.data?.detail || err.message}`);
     }
   };
+
+  const getPoolById = (poolId) => pools.find(p => p.id === poolId);
 
   return (
     <Box>
@@ -109,7 +116,7 @@ const Services = () => {
         />
       </Modal>
       
-      <Paper sx={{ width: '100%', mb: 2 }}>
+      <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
         </Box>
@@ -122,7 +129,7 @@ const Services = () => {
               <TableRow>
                 <TableCell sx={{width: '1%'}}>Enabled</TableCell>
                 <TableCell>Source</TableCell>
-                <TableCell>Destination</TableCell>
+                <TableCell>Assigned Pool</TableCell>
                 <TableCell>SSL</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -133,6 +140,7 @@ const Services = () => {
                 <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
               ) : services.length > 0 ? (
                 services.map((service) => {
+                  const pool = getPoolById(service.pool_id);
                   const serviceIdentifier = service.domain_name || `${service.service_type.toUpperCase()} Stream #${service.id}`;
                   return (
                     <TableRow key={service.id} hover>
@@ -143,15 +151,12 @@ const Services = () => {
                         </TableCell>
                         <TableCell>
                             {service.service_type === 'http' 
-                             ? service.domain_name 
+                             ? <Typography variant="body2" sx={{ fontWeight: '500' }}>{service.domain_name}</Typography>
                              : <Typography variant="body2" color="textSecondary">{`${service.service_type.toUpperCase()} on Port ${service.listen_port}`}</Typography>
                             }
                         </TableCell>
                         <TableCell>
-                            {service.backend_servers && service.backend_servers.length > 0
-                             ? `${service.service_type === 'http' ? service.forward_scheme + '://' : ''}${service.backend_servers[0].host}:${service.backend_servers[0].port}${service.backend_servers.length > 1 ? ` (+${service.backend_servers.length - 1} more)` : ''}`
-                             : 'No destination set'
-                            }
+                            {pool ? pool.name : 'Not Assigned'}
                         </TableCell>
                         <TableCell>
                             {service.service_type === 'http' 
@@ -160,7 +165,7 @@ const Services = () => {
                             }
                         </TableCell>
                         <TableCell>
-                            <HealthStatusIndicator service={service} healthStatus={healthStatus} />
+                            <HealthStatusIndicator service={service} pool={pool} healthStatus={healthStatus} />
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="Edit">
@@ -170,7 +175,7 @@ const Services = () => {
                             <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)}><DeleteIcon color="error" /></IconButton>
                           </Tooltip>
                         </TableCell>
-                    </TableRow> // <-- This was the missing closing tag
+                    </TableRow>
                   )
                 })
               ) : (

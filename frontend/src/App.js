@@ -9,6 +9,7 @@ import Certs from './pages/Certs';
 import WAFRules from './pages/WAFRules';
 import Logs from './pages/Logs';
 import Settings from './pages/Settings';
+import Pools from './pages/Pools'; // <-- NEW
 
 const theme = createTheme({
   palette: {
@@ -25,15 +26,13 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Toaster position="top-right" toastOptions={{
-          success: { duration: 3000 },
-          error: { duration: 5000 },
-      }}/>
+      <Toaster position="top-right" />
       <Router>
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/pools" element={<Pools />} /> {/* <-- NEW */}
             <Route path="/certs" element={<Certs />} />
             <Route path="/waf" element={<WAFRules />} />
             <Route path="/logs" element={<Logs />} />
