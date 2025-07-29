@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import {
+    Box, TextField, Button, Select, MenuItem, FormControl, InputLabel, RadioGroup, Radio,
+    Checkbox, FormControlLabel, FormGroup, Grid, Typography, Divider, IconButton, Tooltip
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     const blankService = {
@@ -27,8 +34,6 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
 
     const [formData, setFormData] = useState(blankService);
     const [certs, setCerts] = useState([]);
-    const [message, setMessage] = useState('');
-    const [isError, setIsError] = useState(false);
     const isEditing = !!(formData && formData.id);
 
     useEffect(() => {
@@ -37,7 +42,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                 ? editingService.backend_servers
                 : [{ host: '', port: 80, max_fails: 3, fail_timeout: '10s' }];
             setFormData({ ...editingService, backend_servers: servers, basic_auth_pass: '' });
-        } else if (editingService) { // For "Add New"
+        } else if (editingService) {
             setFormData(blankService);
         }
     }, [editingService]);
@@ -71,8 +76,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('Saving...');
-        setIsError(false);
+        const toastId = toast.loading('Saving...');
 
         const payload = {
             ...formData,
@@ -87,142 +91,82 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
             } else {
                 await axios.post(`${apiUrl}/services`, payload);
             }
-            setMessage(isEditing ? 'Service updated successfully!' : 'Service added successfully!');
+            toast.success(isEditing ? 'Service updated successfully!' : 'Service added successfully!', { id: toastId });
             setTimeout(onFinished, 1000);
         } catch (error) {
-            setMessage(`Error: ${error.response?.data?.detail || error.message}`);
-            setIsError(true);
+            const errorMessage = error.response?.data?.detail || error.message;
+            toast.error(`Error: ${errorMessage}`, { id: toastId });
         }
     };
     
     return (
-        <div> 
-            <h3>{isEditing ? `Editing Service #${formData.id}` : 'Add New Service'}</h3>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label>Service Type</label>
-                    <div style={{display: 'flex', gap: '15px'}}>
-                        <label><input type="radio" name="service_type" value="http" checked={formData.service_type === 'http'} onChange={handleChange} /> HTTP Proxy</label>
-                        <label><input type="radio" name="service_type" value="tcp" checked={formData.service_type === 'tcp'} onChange={handleChange} /> TCP Stream</label>
-                        <label><input type="radio" name="service_type" value="udp" checked={formData.service_type === 'udp'} onChange={handleChange} /> UDP Stream</label>
-                    </div>
-                </div>
+        <Box component="form" onSubmit={handleSubmit} noValidate> 
+            <Typography variant="h5" gutterBottom>{isEditing ? `Editing Service #${formData.id}` : 'Add New Service'}</Typography>
+            
+            <FormControl component="fieldset" fullWidth margin="normal">
+                <Typography variant="subtitle1" component="legend" gutterBottom>Service Type</Typography>
+                <RadioGroup row name="service_type" value={formData.service_type} onChange={handleChange}>
+                    <FormControlLabel value="http" control={<Radio />} label="HTTP Proxy" />
+                    <FormControlLabel value="tcp" control={<Radio />} label="TCP Stream" />
+                    <FormControlLabel value="udp" control={<Radio />} label="UDP Stream" />
+                </RadioGroup>
+            </FormControl>
 
-                {/* Conditional Rendering based on Service Type */}
-                {formData.service_type === 'http' ? (
-                    <>
-                        <fieldset>
-                            <legend>Details</legend>
-                            <div className="form-group">
-                                <label>Domain Name</label>
-                                <input name="domain_name" value={formData.domain_name} onChange={handleChange} required />
-                            </div>
-                            
-                            <div className="form-group">
-                                <label>Backend Server Pool</label>
-                                {formData.backend_servers.map((server, index) => (
-                                    <div key={index} style={{display: 'flex', gap: '5px', marginBottom: '5px', alignItems: 'center'}}>
-                                        <select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange} style={{flexShrink: 0}}>
-                                            <option value="http">http</option>
-                                            <option value="https">https</option>
-                                        </select>
-                                        <input value={server.host} onChange={(e) => handleServerChange(index, 'host', e.target.value)} placeholder="Hostname / IP" required style={{flexGrow: 1}} />
-                                        <input type="number" value={server.port} onChange={(e) => handleServerChange(index, 'port', e.target.value)} placeholder="Port" required style={{width: '80px'}} />
-                                        <input type="number" title="Max Fails" value={server.max_fails} onChange={(e) => handleServerChange(index, 'max_fails', e.target.value)} style={{width: '60px'}} />
-                                        <input type="text" title="Fail Timeout (e.g., 10s)" value={server.fail_timeout} onChange={(e) => handleServerChange(index, 'fail_timeout', e.target.value)} style={{width: '60px'}} />
-                                        <button type="button" onClick={() => removeServer(index)} disabled={formData.backend_servers.length <= 1}>&times;</button>
-                                    </div>
-                                ))}
-                                <button type="button" onClick={addServer}>Add Backend Server</button>
-                            </div>
+            <Divider sx={{ my: 2 }} />
 
-                            <div className="form-group">
-                                <label>Load Balancing Algorithm</label>
-                                <select name="load_balancing_algorithm" value={formData.load_balancing_algorithm} onChange={handleChange}>
-                                    <option value="round_robin">Round Robin</option>
-                                    <option value="least_conn">Least Connections</option>
-                                    <option value="ip_hash">IP Hash</option>
-                                </select>
-                            </div>
+            {formData.service_type === 'http' ? (
+                <Grid container spacing={3}>
+                    {/* Details Section */}
+                    <Grid item xs={12}><Typography variant="h6">Details</Typography></Grid>
+                    <Grid item xs={12}><TextField fullWidth label="Domain Name" name="domain_name" value={formData.domain_name || ''} onChange={handleChange} required /></Grid>
+                    <Grid item xs={12}><Typography variant="subtitle2">Backend Server Pool</Typography></Grid>
+                    {formData.backend_servers.map((server, index) => (
+                        <Grid item xs={12} container spacing={1} key={index} alignItems="center">
+                            <Grid item><FormControl size="small"><Select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange}><MenuItem value="http">http</MenuItem><MenuItem value="https">https</MenuItem></Select></FormControl></Grid>
+                            <Grid item xs><TextField fullWidth size="small" value={server.host} onChange={(e) => handleServerChange(index, 'host', e.target.value)} placeholder="Hostname / IP" required /></Grid>
+                            <Grid item><TextField size="small" type="number" value={server.port} onChange={(e) => handleServerChange(index, 'port', e.target.value)} placeholder="Port" required sx={{width: 80}} /></Grid>
+                            <Grid item><TextField size="small" type="number" label="Fails" value={server.max_fails} onChange={(e) => handleServerChange(index, 'max_fails', e.target.value)} sx={{width: 80}} /></Grid>
+                            <Grid item><TextField size="small" label="Timeout" value={server.fail_timeout} onChange={(e) => handleServerChange(index, 'fail_timeout', e.target.value)} sx={{width: 80}} /></Grid>
+                            <Grid item><Tooltip title="Remove Server"><IconButton onClick={() => removeServer(index)} disabled={formData.backend_servers.length <= 1}><DeleteIcon /></IconButton></Tooltip></Grid>
+                        </Grid>
+                    ))}
+                    <Grid item xs={12}><Button startIcon={<AddIcon />} onClick={addServer}>Add Backend Server</Button></Grid>
+                    <Grid item xs={12} md={6}><FormControl fullWidth><InputLabel>Load Balancing Algorithm</InputLabel><Select name="load_balancing_algorithm" value={formData.load_balancing_algorithm} onChange={handleChange} label="Load Balancing Algorithm"><MenuItem value="round_robin">Round Robin</MenuItem><MenuItem value="least_conn">Least Connections</MenuItem><MenuItem value="ip_hash">IP Hash</MenuItem></Select></FormControl></Grid>
+                    <Grid item xs={12}><FormGroup row><FormControlLabel control={<Checkbox checked={formData.websockets_support} onChange={handleChange} name="websockets_support" />} label="Websockets Support" /><FormControlLabel control={<Checkbox checked={formData.waf_enabled} onChange={handleChange} name="waf_enabled" />} label="Block Common Exploits (WAF)" /></FormGroup></Grid>
 
-                            <div className="form-group">
-                                <label><input type="checkbox" name="websockets_support" checked={formData.websockets_support} onChange={handleChange} /> Websockets Support</label>
-                                <label><input type="checkbox" name="waf_enabled" checked={formData.waf_enabled} onChange={handleChange} /> Block Common Exploits (WAF)</label>
-                            </div>
-                        </fieldset>
-
-                        <fieldset>
-                            <legend>SSL</legend>
-                            <div className="form-group">
-                                <label>SSL Certificate</label>
-                                <select name="certificate_name" value={formData.certificate_name} onChange={handleChange}>
-                                    <option value="dummy">None (Dummy Self-Signed)</option>
-                                    {certs.map(cert => <option key={cert} value={cert}>{cert}</option>)}
-                                </select>
-                            </div>
-                             <div className="form-group">
-                                <label><input type="checkbox" name="force_ssl" checked={formData.force_ssl} onChange={handleChange} /> Force SSL</label>
-                                <label><input type="checkbox" name="http2_support" checked={formData.http2_support} onChange={handleChange} /> HTTP/2 Support</label>
-                                <label><input type="checkbox" name="hsts_enabled" checked={formData.hsts_enabled} onChange={handleChange} /> HSTS Enabled</label>
-                                <label><input type="checkbox" name="hsts_subdomains" checked={formData.hsts_subdomains} onChange={handleChange} disabled={!formData.hsts_enabled} /> HSTS Subdomains</label>
-                            </div>
-                        </fieldset>
-                        
-                        <fieldset>
-                            <legend>Access</legend>
-                            <div className="form-group">
-                                <label>Access List</label>
-                                <select name="access_list_type" value={formData.access_list_type} onChange={handleChange}>
-                                    <option value="allow">Allow these IPs</option>
-                                    <option value="deny">Deny these IPs</option>
-                                </select>
-                                <textarea
-                                    name="access_list_ips"
-                                    value={Array.isArray(formData.access_list_ips) ? formData.access_list_ips.join('\n') : ''}
-                                    onChange={(e) => setFormData(prev => ({...prev, access_list_ips: e.target.value.split('\n')}))}
-                                    rows="3"
-                                    placeholder="Enter one IP or CIDR per line, e.g., 192.168.1.100 or 10.0.0.0/24"
-                                    style={{ fontFamily: 'monospace', width: '100%', boxSizing: 'border-box', marginTop: '5px' }}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>HTTP Basic Authentication</label>
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                    <input name="basic_auth_user" value={formData.basic_auth_user || ''} onChange={handleChange} placeholder="Username" style={{flexGrow: 1}} />
-                                    <input name="basic_auth_pass" type="password" value={formData.basic_auth_pass || ''} onChange={handleChange} placeholder="Password (enter to set/change)" style={{flexGrow: 1}} />
-                                </div>
-                            </div>
-                        </fieldset>
-                    </>
-                ) : (
-                    <fieldset>
-                        <legend>Stream Details</legend>
-                        <div className="form-group">
-                            <label>Listen Port</label>
-                            <input name="listen_port" type="number" value={formData.listen_port || ''} onChange={handleChange} required />
-                            <small>The port the proxy will listen on. Must be within the exposed range (e.g., 10000-10100).</small>
-                        </div>
-                        <div className="form-group">
-                            <label>Backend Server Pool</label>
-                            {formData.backend_servers.map((server, index) => (
-                                <div key={index} style={{display: 'flex', gap: '10px', marginBottom: '5px'}}>
-                                    <input value={server.host} onChange={(e) => handleServerChange(index, 'host', e.target.value)} placeholder="Hostname / IP" required style={{flexGrow: 1}} />
-                                    <input type="number" value={server.port} onChange={(e) => handleServerChange(index, 'port', e.target.value)} placeholder="Port" required style={{width: '100px'}} />
-                                    <button type="button" onClick={() => removeServer(index)} disabled={formData.backend_servers.length <= 1}>&times;</button>
-                                </div>
-                            ))}
-                            <button type="button" onClick={addServer}>Add Backend Server</button>
-                        </div>
-                    </fieldset>
-                )}
+                    {/* SSL Section */}
+                    <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">SSL</Typography></Grid>
+                    <Grid item xs={12}><FormControl fullWidth><InputLabel>SSL Certificate</InputLabel><Select name="certificate_name" value={formData.certificate_name} onChange={handleChange} label="SSL Certificate"><MenuItem value="dummy">None (Dummy Self-Signed)</MenuItem>{certs.map(cert => <MenuItem key={cert} value={cert}>{cert}</MenuItem>)}</Select></FormControl></Grid>
+                    <Grid item xs={12}><FormGroup row><FormControlLabel control={<Checkbox checked={formData.force_ssl} onChange={handleChange} name="force_ssl" />} label="Force SSL" /><FormControlLabel control={<Checkbox checked={formData.http2_support} onChange={handleChange} name="http2_support" />} label="HTTP/2 Support" /><FormControlLabel control={<Checkbox checked={formData.hsts_enabled} onChange={handleChange} name="hsts_enabled" />} label="HSTS Enabled" /><FormControlLabel control={<Checkbox checked={formData.hsts_subdomains} onChange={handleChange} name="hsts_subdomains" disabled={!formData.hsts_enabled} />} label="HSTS Subdomains" /></FormGroup></Grid>
                 
-                <div style={{marginTop: '20px'}}>
-                    <button type="submit">Save</button>
-                    <button type="button" onClick={onFinished} style={{marginLeft: '10px', backgroundColor: '#7f8c8d'}}>Cancel</button>
-                    {message && <p style={{ color: isError ? 'red' : 'green' }}>{message}</p>}
-                </div>
-            </form>
-        </div>
+                    {/* Access Section */}
+                    <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">Access</Typography></Grid>
+                    <Grid item xs={12}><FormControl fullWidth><InputLabel>Access List Type</InputLabel><Select name="access_list_type" value={formData.access_list_type} onChange={handleChange} label="Access List Type"><MenuItem value="allow">Allow these IPs</MenuItem><MenuItem value="deny">Deny these IPs</MenuItem></Select></FormControl></Grid>
+                    <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Access List IPs" name="access_list_ips" value={Array.isArray(formData.access_list_ips) ? formData.access_list_ips.join('\n') : ''} onChange={(e) => setFormData(prev => ({...prev, access_list_ips: e.target.value.split('\n')}))} placeholder="Enter one IP or CIDR per line, e.g., 192.168.1.100 or 10.0.0.0/24" /></Grid>
+                    <Grid item xs={12} md={6}><TextField fullWidth label="Basic Auth Username" name="basic_auth_user" value={formData.basic_auth_user || ''} onChange={handleChange} /></Grid>
+                    <Grid item xs={12} md={6}><TextField fullWidth type="password" label="Basic Auth Password" name="basic_auth_pass" value={formData.basic_auth_pass || ''} onChange={handleChange} helperText="Enter to set or change" /></Grid>
+                </Grid>
+            ) : (
+                <Grid container spacing={2}>
+                    <Grid item xs={12}><Typography variant="h6">Stream Details</Typography></Grid>
+                    <Grid item xs={12}><TextField fullWidth label="Listen Port" name="listen_port" type="number" value={formData.listen_port || ''} onChange={handleChange} required helperText="The port the proxy will listen on. Must be within the exposed range (e.g., 10000-10100)." /></Grid>
+                    <Grid item xs={12}><Typography variant="subtitle2">Backend Server Pool</Typography></Grid>
+                     {formData.backend_servers.map((server, index) => (
+                        <Grid item xs={12} container spacing={1} key={index} alignItems="center">
+                            <Grid item xs><TextField fullWidth size="small" value={server.host} onChange={(e) => handleServerChange(index, 'host', e.target.value)} placeholder="Hostname / IP" required /></Grid>
+                            <Grid item><TextField size="small" type="number" value={server.port} onChange={(e) => handleServerChange(index, 'port', e.target.value)} placeholder="Port" required sx={{width: 100}} /></Grid>
+                            <Grid item><Tooltip title="Remove Server"><IconButton onClick={() => removeServer(index)} disabled={formData.backend_servers.length <= 1}><DeleteIcon /></IconButton></Tooltip></Grid>
+                        </Grid>
+                    ))}
+                    <Grid item xs={12}><Button startIcon={<AddIcon />} onClick={addServer}>Add Backend Server</Button></Grid>
+                </Grid>
+            )}
+
+            <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
+                <Button type="submit" variant="contained">Save</Button>
+                <Button onClick={onFinished} variant="outlined">Cancel</Button>
+            </Box>
+        </Box>
     );
 };
 

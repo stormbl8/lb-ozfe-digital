@@ -20,7 +20,7 @@ This project is a web-based interface for managing an NGINX load balancer, built
     ```
 
 5.  **Access Services:**
-    * **Web UI:** [http://localhost:3000](http://localhost:3000)
+    * **Web UI:** [http://localhost:88](http://localhost:88)
     * **Load Balancer HTTP Port:** `80`
     * **Load Balancer HTTPS Port:** `443`
 

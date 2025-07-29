@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import {
+    Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Typography, Button, IconButton, Switch, Tooltip, CircularProgress, Alert
+} from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import NewProxyForm from '../components/NewProxyForm';
 import Modal from '../components/Modal';
 
@@ -13,7 +19,6 @@ const HealthStatusIndicator = ({ service, healthStatus }) => {
         return <><span style={{ color: '#f39c12' }}>●</span> No Backends</>;
     }
 
-    // Check status of the first backend server
     const first_backend = `${service.backend_servers[0].host}:${service.backend_servers[0].port}`;
     const status = healthStatus[first_backend];
 
@@ -92,8 +97,8 @@ const Services = () => {
   };
 
   return (
-    <div>
-      <h1 className="page-header">Proxy Hosts</h1>
+    <Box>
+      <Typography variant="h4" gutterBottom>Proxy Hosts</Typography>
       
       <Modal isOpen={!!editingService} onClose={handleCloseForm}>
         <NewProxyForm
@@ -104,75 +109,78 @@ const Services = () => {
         />
       </Modal>
       
-      <div className="card">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-            <h3>Existing Hosts</h3>
-            <button onClick={() => setEditingService({})} style={{marginBottom: '10px'}}>Add Proxy Host</button>
-        </div>
+      <Paper sx={{ width: '100%', mb: 2 }}>
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
+        </Box>
         
-        {loading && <p>Loading services...</p>}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
         
-        {!loading && !error && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '8px' }}>Enabled</th>
-                <th style={{ padding: '8px' }}>Source</th>
-                <th style={{ padding: '8px' }}>Destination</th>
-                <th style={{ padding: '8px' }}>SSL</th>
-                <th style={{ padding: '8px' }}>Status</th>
-                <th style={{ padding: '8px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.length > 0 ? (
+        <TableContainer>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{width: '1%'}}>Enabled</TableCell>
+                <TableCell>Source</TableCell>
+                <TableCell>Destination</TableCell>
+                <TableCell>SSL</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+              ) : services.length > 0 ? (
                 services.map((service) => {
                   const serviceIdentifier = service.domain_name || `${service.service_type.toUpperCase()} Stream #${service.id}`;
                   return (
-                    <tr key={service.id} style={{ borderBottom: '1px solid #ddd' }}>
-                        <td style={{ padding: '8px' }}>
-                            <label className="switch">
-                                <input type="checkbox" checked={service.enabled} onChange={() => handleToggleEnabled(service)} />
-                                <span className="slider round"></span>
-                            </label>
-                        </td>
-                        <td style={{ padding: '8px' }}>
+                    <TableRow key={service.id} hover>
+                        <TableCell>
+                            <Tooltip title={service.enabled ? "Disable" : "Enable"}>
+                                <Switch checked={service.enabled} onChange={() => handleToggleEnabled(service)} color="primary" />
+                            </Tooltip>
+                        </TableCell>
+                        <TableCell>
                             {service.service_type === 'http' 
                              ? service.domain_name 
-                             : `${service.service_type.toUpperCase()} on Port ${service.listen_port}`
+                             : <Typography variant="body2" color="textSecondary">{`${service.service_type.toUpperCase()} on Port ${service.listen_port}`}</Typography>
                             }
-                        </td>
-                        <td style={{ padding: '8px' }}>
+                        </TableCell>
+                        <TableCell>
                             {service.backend_servers && service.backend_servers.length > 0
                              ? `${service.service_type === 'http' ? service.forward_scheme + '://' : ''}${service.backend_servers[0].host}:${service.backend_servers[0].port}${service.backend_servers.length > 1 ? ` (+${service.backend_servers.length - 1} more)` : ''}`
                              : 'No destination set'
                             }
-                        </td>
-                        <td style={{ padding: '8px' }}>
+                        </TableCell>
+                        <TableCell>
                             {service.service_type === 'http' 
                              ? (service.certificate_name === 'dummy' ? 'Self-Signed' : 'Let\'s Encrypt')
                              : 'N/A'
                             }
-                        </td>
-                        <td style={{ padding: '8px' }}>
+                        </TableCell>
+                        <TableCell>
                             <HealthStatusIndicator service={service} healthStatus={healthStatus} />
-                        </td>
-                        <td style={{ padding: '8px' }}>
-                          <button onClick={() => setEditingService(service)} style={{marginRight: '5px'}}>Edit</button>
-                          <button onClick={() => handleDelete(service.id, serviceIdentifier)} style={{ backgroundColor: '#e74c3c' }}>Delete</button>
-                        </td>
-                    </tr>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Edit">
+                            <IconButton onClick={() => setEditingService(service)}><EditIcon /></IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)}><DeleteIcon color="error" /></IconButton>
+                          </Tooltip>
+                        </TableCell>
+                    </TableRow> // <-- This was the missing closing tag
                   )
                 })
               ) : (
-                <tr><td colSpan="6" style={{ padding: '8px', textAlign: 'center' }}>No hosts configured yet.</td></tr>
+                <TableRow><TableCell colSpan={6} align="center">No hosts configured yet.</TableCell></TableRow>
               )}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
   );
 };
 
