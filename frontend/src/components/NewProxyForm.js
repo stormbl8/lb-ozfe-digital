@@ -1,110 +1,128 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const NewProxyForm = ({ onServiceAdded, apiUrl }) => {
-    const [domainName, setDomainName] = useState('');
-    const [backendHost, setBackendHost] = useState('');
-    const [backendPort, setBackendPort] = useState(80);
-    const [advancedConfig, setAdvancedConfig] = useState('');
+// The form component is now simpler
+const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
+    const blankService = {
+        domain_name: '',
+        forward_scheme: 'http',
+        backend_host: '',
+        backend_port: 80,
+        enabled: true,
+        cache_assets: false,
+        websockets_support: true,
+        waf_enabled: false,
+        certificate_name: 'dummy',
+        force_ssl: false,
+        http2_support: false,
+        hsts_enabled: false,
+        hsts_subdomains: false,
+        advanced_config: '',
+    };
+
+    const [formData, setFormData] = useState(blankService);
     const [certs, setCerts] = useState([]);
-    const [selectedCert, setSelectedCert] = useState('dummy');
-    const [wafEnabled, setWafEnabled] = useState(false); // <-- ADD WAF STATE
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
-        const fetchCerts = async () => {
-            try {
-                const response = await axios.get(`${apiUrl}/certificates`);
-                setCerts(response.data);
-            } catch (error) {
-                console.error("Failed to fetch certificates", error);
-            }
-        };
-        fetchCerts();
+        if (editingService && editingService.id) {
+            setFormData(editingService);
+            setIsEditing(true);
+        } else {
+            setFormData(blankService);
+            setIsEditing(false);
+        }
+    }, [editingService]);
+    
+    useEffect(() => {
+        axios.get(`${apiUrl}/certificates`).then(res => setCerts(res.data));
     }, [apiUrl]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('Processing...');
+        setMessage('Saving...');
         setIsError(false);
 
+        const payload = {
+            ...formData,
+            backend_port: parseInt(formData.backend_port, 10),
+        };
+
         try {
-            const payload = {
-                domain_name: domainName,
-                backend_host: backendHost,
-                backend_port: parseInt(backendPort, 10),
-                certificate_name: selectedCert,
-                advanced_config: advancedConfig,
-                waf_enabled: wafEnabled, // <-- ADD TO PAYLOAD
-            };
-            await axios.post(`${apiUrl}/services`, payload);
-            setMessage(`Service for ${domainName} added successfully!`);
-            
-            // Clear form
-            setDomainName('');
-            setBackendHost('');
-            setBackendPort(80);
-            setAdvancedConfig('');
-            setSelectedCert('dummy');
-            setWafEnabled(false); // <-- CLEAR WAF STATE
-            
-            onServiceAdded();
+            if (isEditing) {
+                await axios.put(`${apiUrl}/services/${formData.id}`, payload);
+            } else {
+                await axios.post(`${apiUrl}/services`, payload);
+            }
+            setMessage(isEditing ? 'Service updated successfully!' : 'Service added successfully!');
+            setTimeout(onFinished, 1000);
         } catch (error) {
             setMessage(`Error: ${error.response?.data?.detail || error.message}`);
             setIsError(true);
         }
     };
+    
+    // --- REMOVED THE old "if (!editingService) return null;" line ---
 
     return (
-        <div className="card">
-            <h3>Add New Reverse Proxy</h3>
+        // The card class is no longer needed here as the modal provides the container
+        <div> 
+            <h3>{isEditing ? `Editing ${formData.domain_name}` : 'Add New Proxy Host'}</h3>
             <form onSubmit={handleSubmit}>
-                {/* Domain, Host, Port fields are unchanged */}
-                <div className="form-group">
-                    <label htmlFor="domainName">Domain Name</label>
-                    <input type="text" id="domainName" value={domainName} onChange={(e) => setDomainName(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="backendHost">Backend Host</label>
-                    <input type="text" id="backendHost" value={backendHost} onChange={(e) => setBackendHost(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="backendPort">Backend Port</label>
-                    <input type="number" id="backendPort" value={backendPort} onChange={(e) => setBackendPort(e.target.value)} required />
-                </div>
+                <fieldset>
+                    <legend>Details</legend>
+                    <div className="form-group">
+                        <label>Domain Name</label>
+                        <input name="domain_name" value={formData.domain_name} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group" style={{display: 'flex', gap: '10px'}}>
+                        <select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange}>
+                            <option value="http">http</option>
+                            <option value="https">https</option>
+                        </select>
+                        <input name="backend_host" value={formData.backend_host} onChange={handleChange} placeholder="Forward Hostname / IP" required style={{flexGrow: 1}} />
+                        <input name="backend_port" type="number" value={formData.backend_port} onChange={handleChange} placeholder="Forward Port" required style={{width: '100px'}} />
+                    </div>
+                     <div className="form-group">
+                        <label><input type="checkbox" name="cache_assets" checked={formData.cache_assets} onChange={handleChange} /> Cache Assets</label>
+                        <label><input type="checkbox" name="websockets_support" checked={formData.websockets_support} onChange={handleChange} /> Websockets Support</label>
+                        <label><input type="checkbox" name="waf_enabled" checked={formData.waf_enabled} onChange={handleChange} /> Block Common Exploits (WAF)</label>
+                    </div>
+                </fieldset>
 
-                <div className="form-group">
-                    <label htmlFor="sslCert">SSL Certificate</label>
-                    <select id="sslCert" value={selectedCert} onChange={(e) => setSelectedCert(e.target.value)} style={{width: '100%', padding: '8px'}}>
-                        <option value="dummy">None (Use Dummy Self-Signed Cert)</option>
-                        {certs.map(cert => (
-                            <option key={cert} value={cert}>{cert}</option>
-                        ))}
-                    </select>
+                <fieldset>
+                    <legend>SSL</legend>
+                    <div className="form-group">
+                        <label>SSL Certificate</label>
+                        <select name="certificate_name" value={formData.certificate_name} onChange={handleChange}>
+                            <option value="dummy">None (Dummy Self-Signed)</option>
+                            {certs.map(cert => <option key={cert} value={cert}>{cert}</option>)}
+                        </select>
+                    </div>
+                     <div className="form-group">
+                        <label><input type="checkbox" name="force_ssl" checked={formData.force_ssl} onChange={handleChange} /> Force SSL</label>
+                        <label><input type="checkbox" name="http2_support" checked={formData.http2_support} onChange={handleChange} /> HTTP/2 Support</label>
+                        <label><input type="checkbox" name="hsts_enabled" checked={formData.hsts_enabled} onChange={handleChange} /> HSTS Enabled</label>
+                        <label><input type="checkbox" name="hsts_subdomains" checked={formData.hsts_subdomains} onChange={handleChange} disabled={!formData.hsts_enabled} /> HSTS Subdomains</label>
+                    </div>
+                </fieldset>
+                
+                <div style={{marginTop: '20px'}}>
+                    <button type="submit">Save</button>
+                    <button type="button" onClick={onFinished} style={{marginLeft: '10px', backgroundColor: '#7f8c8d'}}>Cancel</button>
+                    {message && <p style={{ color: isError ? 'red' : 'green' }}>{message}</p>}
                 </div>
-
-                {/* --- NEW WAF CHECKBOX --- */}
-                 <div className="form-group">
-                    <label style={{ display: 'flex', alignItems: 'center' }}>
-                        <input
-                            type="checkbox"
-                            id="wafEnabled"
-                            checked={wafEnabled}
-                            onChange={(e) => setWafEnabled(e.target.checked)}
-                            style={{ width: 'auto', marginRight: '10px' }}
-                        />
-                        Enable Web Application Firewall (OWASP Core Rule Set)
-                    </label>
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="advancedConfig">Advanced NGINX Configuration</label>
-                    <textarea id="advancedConfig" value={advancedConfig} onChange={(e) => setAdvancedConfig(e.target.value)} rows="4" style={{ fontFamily: 'monospace', width: '100%', boxSizing: 'border-box' }}/>
-                </div>
-                <button type="submit">Add Service</button>
             </form>
-            {message && <p style={{ marginTop: '15px', color: isError ? 'red' : 'green' }}>{message}</p>}
         </div>
     );
 };

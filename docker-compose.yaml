@@ -7,7 +7,7 @@ services:
     build: ./frontend
     container_name: lb-ui-frontend
     ports:
-      - "3000:80"
+      - "88:88"
     restart: unless-stopped
     networks:
       - app-network

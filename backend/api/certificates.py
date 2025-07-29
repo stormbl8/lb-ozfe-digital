@@ -4,13 +4,12 @@ import logging
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-# --- UPDATED Pydantic Model ---
-# Add a boolean flag for using the staging environment
 class IssueRequest(BaseModel):
     domain: str
     use_staging: bool = False
 
 LETSENCRYPT_DIR = "/data/certs/letsencrypt/live"
+LETSENCRYPT_BASE_DIR = "/data/certs/letsencrypt" # For permissions
 CLOUDFLARE_CREDS_PATH = "/etc/letsencrypt/credentials/cloudflare.ini"
 logger = logging.getLogger(__name__)
 
@@ -19,12 +18,10 @@ router = APIRouter(
     tags=["Certificates"]
 )
 
-# --- UPDATED Background Task ---
-# The function now accepts the use_staging flag
 def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
     """
     This function runs in the background to avoid tying up the API.
-    It securely writes credentials, runs certbot, and cleans up.
+    It securely writes credentials, runs certbot, fixes permissions, and cleans up.
     """
     logger.info(f"Starting certificate issuance for {domain} (Staging: {use_staging})")
     
@@ -53,7 +50,6 @@ def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
         "--logs-dir", "/data/certs/logs"
     ]
     
-    # --- Conditionally add the --staging flag ---
     if use_staging:
         command.append("--staging")
     
@@ -65,10 +61,17 @@ def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
             check=False
         )
         
-        if process.returncode != 0:
-            logger.error(f"Certbot failed for {domain}. Stderr: {process.stderr}")
-        else:
+        if process.returncode == 0:
             logger.info(f"Certbot succeeded for {domain}. Stdout: {process.stdout}")
+            # --- THIS IS THE FIX ---
+            # After success, fix permissions so NGINX can read the certs.
+            # a+rX gives read permission to all files and execute/search permission to all directories.
+            logger.info("Updating certificate file permissions for NGINX...")
+            chmod_command = ["chmod", "-R", "a+rX", LETSENCRYPT_BASE_DIR]
+            subprocess.run(chmod_command, check=True)
+            logger.info("Successfully updated certificate file permissions.")
+        else:
+            logger.error(f"Certbot failed for {domain}. Stderr: {process.stderr}")
 
     except Exception as e:
         logger.error(f"An exception occurred while running certbot: {e}")
@@ -93,7 +96,6 @@ async def issue_certificate(req: IssueRequest, background_tasks: BackgroundTasks
             detail="CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY must be set in the .env file."
         )
 
-    # Pass the use_staging flag to the background task
     background_tasks.add_task(run_certbot_issue, req.domain, email, api_key, req.use_staging)
     
     return {

@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "domain_name": "lb.ozfe-digital.de",
+    "forward_scheme": "http",
+    "backend_host": "127.0.0.1",
+    "backend_port": 88,
+    "enabled": true,
+    "cache_assets": true,
+    "websockets_support": true,
+    "waf_enabled": true,
+    "certificate_name": "ozfe-digital.de-0001",
+    "force_ssl": true,
+    "http2_support": true,
+    "hsts_enabled": true,
+    "hsts_subdomains": true,
+    "advanced_config": ""
+  }
+]
