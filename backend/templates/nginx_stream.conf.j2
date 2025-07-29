@@ -1,0 +1,15 @@
+# Managed by Load Balancer UI for: {{ service.service_type | upper }} Stream on port {{ service.listen_port }}
+
+upstream stream_pool_{{ service.id }} {
+    # Loop through the backend servers and add them to the pool
+    {% for server in service.backend_servers %}
+    server {{ server.host }}:{{ server.port }};
+    {% endfor %}
+}
+
+server {
+    listen {{ service.listen_port }}{% if service.service_type == 'udp' %} udp{% endif %};
+    proxy_pass stream_pool_{{ service.id }};
+    proxy_timeout 10m;
+    proxy_connect_timeout 5s;
+}

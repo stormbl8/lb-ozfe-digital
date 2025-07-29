@@ -8,3 +8,6 @@ websockets
 aiofiles
 certbot
 certbot-dns-cloudflare
+httpx
+passlib
+bcrypt

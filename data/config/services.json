@@ -1,19 +1,32 @@
 [
   {
     "id": 1,
+    "service_type": "http",
+    "listen_port": null,
     "domain_name": "lb.ozfe-digital.de",
-    "forward_scheme": "http",
-    "backend_host": "127.0.0.1",
-    "backend_port": 88,
+    "backend_servers": [
+      {
+        "host": "frontend",
+        "port": 88,
+        "max_fails": 3,
+        "fail_timeout": "10s"
+      }
+    ],
+    "load_balancing_algorithm": "round_robin",
     "enabled": true,
-    "cache_assets": true,
+    "forward_scheme": "http",
+    "cache_assets": false,
     "websockets_support": true,
     "waf_enabled": true,
-    "certificate_name": "ozfe-digital.de-0001",
+    "certificate_name": "ozfe-digital.de-0002",
     "force_ssl": true,
     "http2_support": true,
     "hsts_enabled": true,
     "hsts_subdomains": true,
+    "access_list_ips": [],
+    "access_list_type": "allow",
+    "basic_auth_user": "",
+    "basic_auth_pass": null,
     "advanced_config": ""
   }
 ]

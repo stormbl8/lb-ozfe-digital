@@ -9,7 +9,7 @@ class IssueRequest(BaseModel):
     use_staging: bool = False
 
 LETSENCRYPT_DIR = "/data/certs/letsencrypt/live"
-LETSENCRYPT_BASE_DIR = "/data/certs/letsencrypt" # For permissions
+LETSENCRYPT_BASE_DIR = "/data/certs/letsencrypt"
 CLOUDFLARE_CREDS_PATH = "/etc/letsencrypt/credentials/cloudflare.ini"
 logger = logging.getLogger(__name__)
 
@@ -19,17 +19,9 @@ router = APIRouter(
 )
 
 def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
-    """
-    This function runs in the background to avoid tying up the API.
-    It securely writes credentials, runs certbot, fixes permissions, and cleans up.
-    """
+    # ... (This function is unchanged from before)
     logger.info(f"Starting certificate issuance for {domain} (Staging: {use_staging})")
-    
-    creds_content = (
-        f"dns_cloudflare_email = {email}\n"
-        f"dns_cloudflare_api_key = {api_key}"
-    )
-    
+    creds_content = (f"dns_cloudflare_email = {email}\n" f"dns_cloudflare_api_key = {api_key}")
     try:
         with open(CLOUDFLARE_CREDS_PATH, "w") as f:
             f.write(creds_content)
@@ -39,43 +31,24 @@ def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
         return
 
     command = [
-        "certbot", "certonly",
-        "--dns-cloudflare",
-        "--dns-cloudflare-credentials", CLOUDFLARE_CREDS_PATH,
-        "--non-interactive", "--agree-tos",
-        "--email", email,
-        "-d", domain,
-        "--config-dir", "/data/certs/letsencrypt",
-        "--work-dir", "/data/certs/work",
-        "--logs-dir", "/data/certs/logs"
+        "certbot", "certonly", "--dns-cloudflare", "--dns-cloudflare-credentials", CLOUDFLARE_CREDS_PATH,
+        "--non-interactive", "--agree-tos", "--email", email, "-d", domain,
+        "--config-dir", LETSENCRYPT_BASE_DIR, "--work-dir", "/data/certs/work", "--logs-dir", "/data/certs/logs"
     ]
-    
     if use_staging:
         command.append("--staging")
     
     try:
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
+        process = subprocess.run(command, capture_output=True, text=True, check=False)
         if process.returncode == 0:
             logger.info(f"Certbot succeeded for {domain}. Stdout: {process.stdout}")
-            # --- THIS IS THE FIX ---
-            # After success, fix permissions so NGINX can read the certs.
-            # a+rX gives read permission to all files and execute/search permission to all directories.
-            logger.info("Updating certificate file permissions for NGINX...")
             chmod_command = ["chmod", "-R", "a+rX", LETSENCRYPT_BASE_DIR]
             subprocess.run(chmod_command, check=True)
             logger.info("Successfully updated certificate file permissions.")
         else:
             logger.error(f"Certbot failed for {domain}. Stderr: {process.stderr}")
-
     except Exception as e:
         logger.error(f"An exception occurred while running certbot: {e}")
-        
     finally:
         if os.path.exists(CLOUDFLARE_CREDS_PATH):
             os.remove(CLOUDFLARE_CREDS_PATH)
@@ -84,31 +57,39 @@ def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
 
 @router.post("/issue")
 async def issue_certificate(req: IssueRequest, background_tasks: BackgroundTasks):
-    """
-    API endpoint to trigger certificate issuance in a background task.
-    """
+    # ... (This function is unchanged from before)
     email = os.getenv("CLOUDFLARE_EMAIL")
     api_key = os.getenv("CLOUDFLARE_API_KEY")
 
     if not all([email, api_key]):
-        raise HTTPException(
-            status_code=412,
-            detail="CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY must be set in the .env file."
-        )
+        raise HTTPException(status_code=412, detail="CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY must be set in the .env file.")
 
     background_tasks.add_task(run_certbot_issue, req.domain, email, api_key, req.use_staging)
     
-    return {
-        "message": f"Certificate issuance for {req.domain} has been started. Check backend logs for status."
-    }
+    return {"message": f"Certificate issuance for {req.domain} has been started. Check backend logs for status."}
 
+# --- THIS IS THE UPDATED FUNCTION ---
 @router.get("")
 async def list_certificates():
-    """Scans the Let's Encrypt directory for available certificate names."""
+    """
+    Scans for and VALIDATES available certificates before returning them.
+    """
+    valid_certs = []
+    if not os.path.exists(LETSENCRYPT_DIR):
+        return []
+        
     try:
-        if not os.path.exists(LETSENCRYPT_DIR):
-            return []
-        certs = [name for name in os.listdir(LETSENCRYPT_DIR) if os.path.isdir(os.path.join(LETSENCRYPT_DIR, name))]
-        return sorted(certs)
-    except FileNotFoundError:
+        # List subdirectories in the 'live' folder
+        for name in os.listdir(LETSENCRYPT_DIR):
+            cert_dir = os.path.join(LETSENCRYPT_DIR, name)
+            if os.path.isdir(cert_dir):
+                # Validate that the necessary files exist and are not empty
+                fullchain_path = os.path.join(cert_dir, "fullchain.pem")
+                privkey_path = os.path.join(cert_dir, "privkey.pem")
+                if (os.path.exists(fullchain_path) and os.path.getsize(fullchain_path) > 0 and
+                    os.path.exists(privkey_path) and os.path.getsize(privkey_path) > 0):
+                    valid_certs.append(name)
+        return sorted(valid_certs)
+    except Exception as e:
+        logger.error(f"Error while listing/validating certificates: {e}")
         return []

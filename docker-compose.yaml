@@ -3,7 +3,6 @@ volumes:
 
 services:
   frontend:
-    # ... (no changes here)
     build: ./frontend
     container_name: lb-ui-frontend
     ports:
@@ -23,30 +22,34 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data/nginx_proxy_configs:/data/nginx_proxy_configs
+      - ./data/nginx_stream_configs:/data/nginx_stream_configs
       - ./data/certs:/data/certs
       - ./data/waf_rules:/data/waf_rules
       - nginx_logs:/var/log/nginx
-      # Add this line to mount the config directory
       - ./data/config:/app/data/config
+      - ./data/htpasswd:/data/htpasswd
     env_file:
       - .env
 
   nginx:
-    # ... (no changes here)
     build: ./nginx
     container_name: nginx-proxy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
-    networks:
-      - app-network
+      - "10000-10100:10000-10100/tcp"
+      - "10000-10100:10000-10100/udp"
     volumes:
       - ./data/nginx_proxy_configs:/etc/nginx/conf.d
+      - ./data/nginx_stream_configs:/etc/nginx/stream.d
       - ./data/certs/letsencrypt:/etc/letsencrypt
       - ./data/certs/dummy:/etc/nginx/certs/dummy
-      - ./data/waf_rules:/etc/nginx/waf_rules
+      - ./data/htpasswd:/data/htpasswd
       - nginx_logs:/var/log/nginx
+      - ./nginx/init.sh:/docker-entrypoint.d/init.sh # <-- ADD THIS LINE
+    networks:
+      - app-network
 
 networks:
   app-network:

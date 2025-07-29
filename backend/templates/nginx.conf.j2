@@ -1,33 +1,59 @@
 # Managed by Load Balancer UI for: {{ service.domain_name }}
-#
+
+# Define the load balancing pool of backend servers
+upstream pool_{{ service.id }} {
+    {% if service.load_balancing_algorithm != 'round_robin' %}{{ service.load_balancing_algorithm }};{% endif %}
+
+    # Loop through the backend servers and add them to the pool with health check parameters
+    {% for server in service.backend_servers %}
+    server {{ server.host }}:{{ server.port }}{% if server.max_fails is not none %} max_fails={{ server.max_fails }}{% endif %}{% if server.fail_timeout %} fail_timeout={{ server.fail_timeout }}{% endif %};
+    {% endfor %}
+}
+
 # HTTP server block for redirection to HTTPS
-# This block is only generated if "Force SSL" is enabled.
 {% if service.force_ssl %}
 server {
     listen 80;
     server_name {{ service.domain_name }};
-
-    # Redirect all HTTP traffic to HTTPS
     location / {
         return 301 https://$host$request_uri;
     }
 }
 {% endif %}
 
-# Main HTTPS server block
+# Main server block
 server {
-    # Listen on port 80 if SSL is not forced, otherwise only listen on 443
     {% if not service.force_ssl %}
     listen 80;
     {% endif %}
-    listen 443 ssl{% if service.http2_support %} http2{% endif %};
+    
+    listen 443 ssl;
+    {% if service.http2_support %}
+    http2 on;
+    {% endif %}
     
     server_name {{ service.domain_name }};
 
     # WAF (ModSecurity) Integration
     {% if service.waf_enabled %}
     modsecurity on;
-    modsecurity_rules_file /etc/modsecurity.d/modsecurity.conf;
+    # The 'modsecurity_rules_file' directive is removed because the base image loads it globally.
+    {% endif %}
+    
+    # Access Control
+    {% if service.access_list_ips %}
+        {% for ip in service.access_list_ips %}
+            {% if ip.strip() %}
+        {{ service.access_list_type }} {{ ip.strip() }};
+            {% endif %}
+        {% endfor %}
+        deny all;
+    {% endif %}
+
+    # Basic Authentication
+    {% if service.basic_auth_user %}
+        auth_basic "Restricted Area";
+        auth_basic_user_file /data/htpasswd/service_{{ service.id }};
     {% endif %}
 
     # SSL Configuration
@@ -43,19 +69,20 @@ server {
     {% if service.hsts_enabled %}
     add_header Strict-Transport-Security "max-age=31536000{% if service.hsts_subdomains %}; includeSubDomains{% endif %}" always;
     {% endif %}
-
+    
     # Caching for static assets
     {% if service.cache_assets %}
     location ~* \.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc)$ {
       expires 1M;
       access_log off;
       add_header Cache-Control "public";
-      proxy_pass {{ service.forward_scheme }}://{{ service.backend_host }}:{{ service.backend_port }};
+      proxy_pass {{ service.forward_scheme }}://pool_{{ service.id }};
     }
     {% endif %}
 
     location / {
-        proxy_pass {{ service.forward_scheme }}://{{ service.backend_host }}:{{ service.backend_port }};
+        proxy_pass {{ service.forward_scheme }}://pool_{{ service.id }};
+        
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
