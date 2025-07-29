@@ -1,3 +1,22 @@
-*.pem
-*.key
-data/certs/letsencrypt/archive/*
+# Environment file - contains secrets!
+.env
+
+# Generated data - should not be in version control
+/data/certs/
+/data/config/
+/data/htpasswd/
+/data/nginx_proxy_configs/
+/data/nginx_stream_configs/
+
+# Node.js dependencies
+/frontend/node_modules
+/frontend/build
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store

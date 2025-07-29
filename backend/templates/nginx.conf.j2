@@ -2,7 +2,6 @@
 
 # Define the load balancing pool of backend servers
 upstream pool_{{ pool.id }} {
-    # This logic is now corrected to avoid a stray semicolon
     {% if pool.load_balancing_algorithm != 'round_robin' %}
     {{ pool.load_balancing_algorithm }};
     {% endif %}
@@ -40,7 +39,7 @@ server {
     # WAF (ModSecurity) Integration
     {% if service.waf_enabled %}
     modsecurity on;
-    modsecurity_rules_file /etc/modsecurity.d/modsecurity.conf;
+    # 'modsecurity_rules_file' is removed because the base image loads it globally.
     {% endif %}
     
     # Access Control
@@ -72,9 +71,6 @@ server {
     {% if service.hsts_enabled %}
     add_header Strict-Transport-Security "max-age=31536000{% if service.hsts_subdomains %}; includeSubDomains{% endif %}" always;
     {% endif %}
-    
-    # Caching for static assets is not yet implemented in the UI
-    # {% if service.cache_assets %} ... {% endif %}
 
     location / {
         proxy_pass {{ service.forward_scheme }}://pool_{{ pool.id }};

@@ -65,7 +65,6 @@ class Service(BaseModel):
             raise ValueError('Listen Port is required for TCP/UDP services')
         return v
         
-# --- THIS SECTION HAS BEEN REORDERED ---
 class RateLimitSettings(BaseModel):
     enabled: bool = False
     requests_per_second: int = Field(default=10, gt=0)

@@ -41,7 +41,7 @@ const Layout = ({ children }) => {
             >
                 <Toolbar>
                     <Typography variant="h6" noWrap component="div">
-                        F5 LoadBalancer
+                        Load Balancer UI
                     </Typography>
                 </Toolbar>
                 <Divider />

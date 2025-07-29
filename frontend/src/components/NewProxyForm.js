@@ -11,7 +11,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         service_type: 'http',
         listen_port: '',
         domain_name: '',
-        pool_id: '', // <-- Now uses pool_id
+        pool_id: '',
         enabled: true,
         forward_scheme: 'http',
         websockets_support: true,
@@ -30,7 +30,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
 
     const [formData, setFormData] = useState(blankService);
     const [certs, setCerts] = useState([]);
-    const [pools, setPools] = useState([]); // <-- NEW STATE FOR POOLS
+    const [pools, setPools] = useState([]);
     const isEditing = !!(formData && formData.id);
 
     useEffect(() => {
@@ -43,7 +43,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     
     useEffect(() => {
         axios.get(`${apiUrl}/certificates`).then(res => setCerts(res.data));
-        axios.get(`${apiUrl}/pools`).then(res => setPools(res.data)); // <-- FETCH POOLS
+        axios.get(`${apiUrl}/pools`).then(res => setPools(res.data));
     }, [apiUrl]);
 
     const handleChange = (e) => {
@@ -54,7 +54,6 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const toastId = toast.loading('Saving...');
-
         const payload = {
             ...formData,
             pool_id: parseInt(formData.pool_id, 10),
@@ -95,7 +94,19 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                 <Grid container spacing={3}>
                     {/* Details Section */}
                     <Grid item xs={12}><Typography variant="h6">Details</Typography></Grid>
-                    <Grid item xs={12} md={6}><TextField fullWidth label="Domain Name" name="domain_name" value={formData.domain_name || ''} onChange={handleChange} required /></Grid>
+                    <Grid item xs={12}><TextField fullWidth label="Domain Name" name="domain_name" value={formData.domain_name || ''} onChange={handleChange} required /></Grid>
+                    
+                    {/* --- THIS IS THE RESTORED DROPDOWN --- */}
+                    <Grid item xs={12} md={6}>
+                        <FormControl fullWidth>
+                            <InputLabel>Forward Scheme</InputLabel>
+                            <Select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange} label="Forward Scheme">
+                                <MenuItem value="http">http</MenuItem>
+                                <MenuItem value="https">https</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Grid>
+
                     <Grid item xs={12} md={6}>
                         <FormControl fullWidth>
                             <InputLabel>Assign to Pool</InputLabel>
@@ -104,6 +115,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                             </Select>
                         </FormControl>
                     </Grid>
+                    
                     <Grid item xs={12}><FormGroup row><FormControlLabel control={<Checkbox checked={formData.websockets_support} onChange={handleChange} name="websockets_support" />} label="Websockets Support" /><FormControlLabel control={<Checkbox checked={formData.waf_enabled} onChange={handleChange} name="waf_enabled" />} label="Block Common Exploits (WAF)" /></FormGroup></Grid>
 
                     {/* SSL Section */}
@@ -113,7 +125,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                 
                     {/* Access Section */}
                     <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">Access</Typography></Grid>
-                     <Grid item xs={12} md={6}><TextField fullWidth label="Basic Auth Username" name="basic_auth_user" value={formData.basic_auth_user || ''} onChange={handleChange} /></Grid>
+                    <Grid item xs={12} md={6}><TextField fullWidth label="Basic Auth Username" name="basic_auth_user" value={formData.basic_auth_user || ''} onChange={handleChange} /></Grid>
                     <Grid item xs={12} md={6}><TextField fullWidth type="password" label="Basic Auth Password" name="basic_auth_pass" value={formData.basic_auth_pass || ''} onChange={handleChange} helperText="Enter to set or change" /></Grid>
                 </Grid>
             ) : (

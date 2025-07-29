@@ -19,5 +19,26 @@
     "basic_auth_user": "",
     "basic_auth_pass": "",
     "advanced_config": ""
+  },
+  {
+    "id": 2,
+    "service_type": "http",
+    "listen_port": null,
+    "domain_name": "test.ozfe-digital.de",
+    "pool_id": 2,
+    "enabled": true,
+    "forward_scheme": "https",
+    "websockets_support": true,
+    "waf_enabled": true,
+    "certificate_name": "ozfe-digital.de",
+    "force_ssl": true,
+    "http2_support": true,
+    "hsts_enabled": true,
+    "hsts_subdomains": true,
+    "access_list_ips": [],
+    "access_list_type": "allow",
+    "basic_auth_user": "",
+    "basic_auth_pass": "",
+    "advanced_config": ""
   }
 ]
