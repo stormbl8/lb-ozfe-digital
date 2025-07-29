@@ -10,9 +10,9 @@ const API_URL = 'http://localhost:8000/api';
 const StatCard = ({ title, value, status, icon }) => {
   const getStatusColor = () => {
     if (!status) return 'text.secondary';
-    status = status.toLowerCase();
+    status = String(status).toLowerCase();
     if (status === 'running' || status === 'up') return 'success.main';
-    if (status === 'error' || status === 'not found') return 'error.main';
+    if (status === 'error' || status === 'not found' || status === 'restarting') return 'error.main';
     return 'warning.main';
   };
 
@@ -38,25 +38,25 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchStats = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_URL}/dashboard`);
-      setStats(response.data);
-      setError('');
+        const response = await axios.get(`${API_URL}/dashboard`);
+        setStats(response.data);
+        if(error) setError('');
     } catch (err) {
-      console.error("Failed to fetch dashboard stats:", err);
-      setError('Could not connect to the backend API.');
-      setStats(prev => ({ ...prev, api_status: 'Error' }));
+        console.error("Failed to fetch dashboard data:", err);
+        setError('Could not connect to the backend API.');
+        setStats(prev => ({ ...prev, api_status: 'Error', nginx_status: 'Unknown' }));
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }, []);
+  }, [error]);
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000);
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
-  }, [fetchStats]);
+  }, [fetchData]);
 
   return (
     <Box>
@@ -71,10 +71,20 @@ const Dashboard = () => {
             <StatCard title="Proxy Hosts" value={stats.service_count} icon={<DnsIcon sx={{ fontSize: 40 }} />} />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatCard title="NGINX Proxy Status" value={stats.nginx_status} status={stats.nginx_status} icon={stats.nginx_status?.toLowerCase() === 'up' ? <CheckCircleIcon sx={{ fontSize: 40 }} /> : <ErrorIcon sx={{ fontSize: 40 }} />} />
+            <StatCard 
+              title="NGINX Proxy Status" 
+              value={stats.nginx_status} 
+              status={stats.nginx_status} 
+              icon={String(stats.nginx_status).toLowerCase().includes('up') ? <CheckCircleIcon sx={{ fontSize: 40 }} /> : <ErrorIcon sx={{ fontSize: 40 }} />} 
+            />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatCard title="Backend API Status" value={stats.api_status} status={stats.api_status} icon={stats.api_status === 'Running' ? <CheckCircleIcon sx={{ fontSize: 40 }} /> : <ErrorIcon sx={{ fontSize: 40 }} />} />
+            <StatCard 
+              title="Backend API Status" 
+              value={stats.api_status} 
+              status={stats.api_status} 
+              icon={stats.api_status === 'Running' ? <CheckCircleIcon sx={{ fontSize: 40 }} /> : <ErrorIcon sx={{ fontSize: 40 }} />} 
+            />
           </Grid>
         </Grid>
       )}
