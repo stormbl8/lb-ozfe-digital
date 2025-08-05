@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import services, logs, settings, dashboard, certificates, health, pools
+from api import services, logs, settings, dashboard, certificates, health, pools, auth
 from core.health_checker import health_check_task
 
 app = FastAPI(
@@ -29,6 +29,7 @@ app.include_router(dashboard.router)
 app.include_router(certificates.router)
 app.include_router(health.router)
 app.include_router(pools.router)
+app.include_router(auth.router) # <-- ADD THIS LINE
 
 @app.get("/")
 def read_root():

@@ -8,6 +8,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ShieldIcon from '@mui/icons-material/Shield';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'; // <-- NEW
 
 const drawerWidth = 260;
 
@@ -21,6 +22,7 @@ const menuItems = [
 const secondaryMenuItems = [
     { text: 'WAF Rules', icon: <ShieldIcon />, path: '/waf' },
     { text: 'Logs', icon: <DescriptionIcon />, path: '/logs' },
+    { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' }, // <-- NEW
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 

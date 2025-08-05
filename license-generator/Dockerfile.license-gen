@@ -1,0 +1,17 @@
+# Use a lightweight Python base image
+FROM python:3.11-alpine
+
+# Set the working directory
+WORKDIR /app
+
+# Install the necessary JWT library
+RUN pip install --no-cache-dir python-jose python-dotenv
+
+# Create a directory for the output file
+RUN mkdir /output
+
+# Copy the Python script that generates the license
+COPY license-generator.py .
+
+# Define the entrypoint for the container. This script will be run when the container starts.
+ENTRYPOINT ["/usr/bin/env", "python3", "license-generator.py"]

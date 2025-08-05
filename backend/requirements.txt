@@ -9,5 +9,7 @@ aiofiles
 certbot
 certbot-dns-cloudflare
 httpx
-passlib
 bcrypt
+python-jose
+cryptography
+python-multipart

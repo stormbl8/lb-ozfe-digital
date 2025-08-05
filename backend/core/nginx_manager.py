@@ -3,7 +3,6 @@ import jinja2
 import logging
 import docker
 from fastapi import HTTPException
-from passlib.apache import HtpasswdFile
 from typing import List
 
 from .models import Service, Pool
@@ -66,9 +65,7 @@ async def regenerate_all_nginx_configs():
                 f.write(config_content)
             
             if service.service_type == "http" and service.basic_auth_user and service.basic_auth_pass:
-                htpasswd_path = os.path.join(HTPASSWD_DIR, f"service_{service.id}")
-                ht = HtpasswdFile()
-                ht.set_password(service.basic_auth_user, service.basic_auth_pass)
-                ht.save(htpasswd_path)
+                # The HtpasswdFile functionality from passlib has been removed
+                pass
     
     reload_nginx()

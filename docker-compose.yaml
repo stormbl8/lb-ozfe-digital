@@ -28,6 +28,7 @@ services:
       - nginx_logs:/var/log/nginx
       - ./data/config:/app/data/config
       - ./data/htpasswd:/data/htpasswd
+      - ./data/licenses:/data/licenses
     env_file:
       - .env
 

@@ -38,6 +38,23 @@ const Services = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingService, setEditingService] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false); // <-- NEW STATE
+
+  // Fetch user role
+  const fetchUserRole = async () => {
+    try {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            const response = await axios.get(`${API_URL}/auth/users/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setIsAdmin(response.data.role === 'admin');
+        }
+    } catch (err) {
+        console.error("Failed to fetch user role.");
+        setIsAdmin(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -57,6 +74,7 @@ const Services = () => {
   }, []);
 
   useEffect(() => {
+    fetchUserRole();
     const fetchHealth = async () => {
         try {
             const response = await axios.get(`${API_URL}/health`);
@@ -117,9 +135,11 @@ const Services = () => {
       </Modal>
       
       <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
-        </Box>
+        {isAdmin && ( // <-- CONDITIONAL RENDER
+            <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
+            </Box>
+        )}
         
         {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
         
@@ -146,7 +166,12 @@ const Services = () => {
                     <TableRow key={service.id} hover>
                         <TableCell>
                             <Tooltip title={service.enabled ? "Disable" : "Enable"}>
-                                <Switch checked={service.enabled} onChange={() => handleToggleEnabled(service)} color="primary" />
+                                <Switch 
+                                    checked={service.enabled} 
+                                    onChange={() => handleToggleEnabled(service)} 
+                                    color="primary" 
+                                    disabled={!isAdmin} // <-- NEW PROP
+                                />
                             </Tooltip>
                         </TableCell>
                         <TableCell>
@@ -169,10 +194,18 @@ const Services = () => {
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="Edit">
-                            <IconButton onClick={() => setEditingService(service)}><EditIcon /></IconButton>
+                            <span>
+                                <IconButton onClick={() => setEditingService(service)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                    <EditIcon />
+                                </IconButton>
+                            </span>
                           </Tooltip>
                           <Tooltip title="Delete">
-                            <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)}><DeleteIcon color="error" /></IconButton>
+                            <span>
+                                <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                    <DeleteIcon color="error" />
+                                </IconButton>
+                            </span>
                           </Tooltip>
                         </TableCell>
                     </TableRow>

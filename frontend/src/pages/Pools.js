@@ -16,6 +16,23 @@ const Pools = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [editingPool, setEditingPool] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false); // <-- NEW STATE
+
+    // Fetch user role
+    const fetchUserRole = async () => {
+        try {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                const response = await axios.get(`${API_URL}/auth/users/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                setIsAdmin(response.data.role === 'admin');
+            }
+        } catch (err) {
+            console.error("Failed to fetch user role.");
+            setIsAdmin(false);
+        }
+    };
 
     const fetchPools = useCallback(async () => {
         try {
@@ -31,6 +48,7 @@ const Pools = () => {
     }, []);
 
     useEffect(() => {
+        fetchUserRole();
         fetchPools();
     }, [fetchPools]);
 
@@ -62,9 +80,11 @@ const Pools = () => {
                 />
             </Modal>
             <Paper>
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="contained" onClick={() => setEditingPool({})}>Add Server Pool</Button>
-                </Box>
+                {isAdmin && ( // <-- CONDITIONAL RENDER
+                    <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button variant="contained" onClick={() => setEditingPool({})}>Add Server Pool</Button>
+                    </Box>
+                )}
                 {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
                 <TableContainer>
                     <Table>
@@ -86,8 +106,20 @@ const Pools = () => {
                                         <TableCell>{pool.load_balancing_algorithm}</TableCell>
                                         <TableCell>{pool.backend_servers.length}</TableCell>
                                         <TableCell align="right">
-                                            <Tooltip title="Edit"><IconButton onClick={() => setEditingPool(pool)}><EditIcon /></IconButton></Tooltip>
-                                            <Tooltip title="Delete"><IconButton onClick={() => handleDelete(pool.id, pool.name)}><DeleteIcon color="error" /></IconButton></Tooltip>
+                                            <Tooltip title="Edit">
+                                                <span>
+                                                    <IconButton onClick={() => setEditingPool(pool)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                                        <EditIcon />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                            <Tooltip title="Delete">
+                                                <span>
+                                                    <IconButton onClick={() => handleDelete(pool.id, pool.name)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                                        <DeleteIcon color="error" />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
                                         </TableCell>
                                     </TableRow>
                                 ))

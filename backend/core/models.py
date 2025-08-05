@@ -72,3 +72,15 @@ class RateLimitSettings(BaseModel):
 
 class AppSettings(BaseModel):
     rate_limiting: RateLimitSettings = RateLimitSettings()
+
+# New models for user authentication
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = None
+    password: Optional[str] = None
+
+class UserInDB(User):
+    hashed_password: str
+    role: Literal["admin", "read-only"] = "read-only"
