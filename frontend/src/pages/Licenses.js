@@ -15,30 +15,32 @@ const Licenses = () => {
     };
 
     const handleFileUpload = async () => {
-        if (!selectedFile) {
-            toast.error("Please select a file to upload.");
-            return;
-        }
+    if (!selectedFile) {
+        toast.error("Please select a file to upload.");
+        return;
+    }
 
-        const formData = new FormData();
-        formData.append("file", selectedFile);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
 
-        try {
-            const response = await axios.post(`${API_URL}/auth/license/upload`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-            setMessage(response.data.message);
-            setIsError(false);
-            toast.success(response.data.message);
-        } catch (error) {
-            const errorMessage = error.response?.data?.detail || error.message;
-            setMessage(errorMessage);
-            setIsError(true);
-            toast.error(errorMessage);
-        }
-    };
+    try {
+        const token = localStorage.getItem('access_token'); // Get the token
+        const response = await axios.post(`${API_URL}/auth/license/upload`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'Authorization': `Bearer ${token}`, // Add the Authorization header
+            },
+        });
+        setMessage(response.data.message);
+        setIsError(false);
+        toast.success(response.data.message);
+    } catch (error) {
+        const errorMessage = error.response?.data?.detail || error.message;
+        setMessage(errorMessage);
+        setIsError(true);
+        toast.error(errorMessage);
+    }
+};
 
     return (
         <Box>

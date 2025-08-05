@@ -1,11 +1,10 @@
 import os
-from jose import jwt, JWTError # Changed
+from jose import jwt, JWTError
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.concurrency import run_in_threadpool
 from typing import Annotated
 
-from core.models import User, UserInDB
+from core.models import User, UserInDB, UserResponse
 from core.security import verify_password, create_access_token, get_password_hash, get_user_from_db, get_current_user
 from core.db_manager import write_users_db, read_users_db
 
@@ -26,6 +25,14 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     
     access_token = create_access_token(data={"sub": user.username, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
+
+# --- ADD THIS NEW ENDPOINT ---
+@router.get("/users/me", response_model=UserResponse)
+async def read_users_me(current_user: Annotated[UserInDB, Depends(get_current_user)]):
+    """
+    Get current user details.
+    """
+    return current_user
 
 @router.post("/register", response_model=User)
 async def register_user(user: User):
@@ -60,7 +67,7 @@ async def upload_license(
     """
     try:
         token_content = await file.read()
-        decoded_token = jwt.decode(token_content, os.getenv("SECRET_KEY"), algorithms=["HS256"]) # Changed
+        decoded_token = jwt.decode(token_content, os.getenv("SECRET_KEY"), algorithms=["HS256"])
 
         license_username = decoded_token.get("sub")
         license_role = decoded_token.get("role")
@@ -78,7 +85,7 @@ async def upload_license(
         await write_users_db(users_db)
 
         return {"message": f"License for {license_username} applied successfully. Role updated to {license_role}."}
-    except JWTError: # Changed
+    except JWTError:
         raise HTTPException(status_code=400, detail="Invalid JWT file or signature.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
