@@ -89,3 +89,6 @@ class UserResponse(UserBase):
 class UserInDB(User):
     hashed_password: str
     role: Literal["admin", "read-only"] = "read-only"
+
+class AdminUserCreate(User):
+    role: Literal["admin", "read-only"] = "read-only"

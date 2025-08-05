@@ -12,7 +12,7 @@ This project is a web-based interface for managing an NGINX load balancer, built
     openssl req -x509 -nodes -newkey rsa:2048 -keyout data/certs/dummy/dummy.key -out data/certs/dummy/dummy.crt -subj "/CN=dummy"
     ```
 
-3.  **Environment File:** Rename `sample.env` to `.env` and add your Cloudflare email and API key.
+3.  **Environment File:** Rename `sample.env` to `.env`. Fill in your Cloudflare details and set a secure password for the initial admin user.
 
 4.  **Build and Launch:** Run the following command from the project root directory:
     ```bash

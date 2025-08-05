@@ -24,11 +24,10 @@ const Licenses = () => {
     formData.append("file", selectedFile);
 
     try {
-        const token = localStorage.getItem('access_token'); // Get the token
+        // Token is no longer needed for this public endpoint
         const response = await axios.post(`${API_URL}/auth/license/upload`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
-                'Authorization': `Bearer ${token}`, // Add the Authorization header
             },
         });
         setMessage(response.data.message);

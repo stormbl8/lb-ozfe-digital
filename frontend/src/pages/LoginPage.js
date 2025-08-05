@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    Box, Paper, TextField, Button, Typography, Link
+    Box, Paper, TextField, Button, Typography
 } from '@mui/material';
 import toast from 'react-hot-toast';
 
@@ -73,9 +73,6 @@ const LoginPage = () => {
                         Sign In
                     </Button>
                 </Box>
-                <Typography variant="body2" sx={{ textAlign: 'center' }}>
-                    Don't have an account? <Link href="/register">Register here</Link>
-                </Typography>
             </Paper>
         </Box>
     );

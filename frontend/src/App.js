@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
 import { Toaster } from 'react-hot-toast';
+import axios from 'axios';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
@@ -11,8 +12,10 @@ import WAFRules from './pages/WAFRules';
 import Logs from './pages/Logs';
 import Settings from './pages/Settings';
 import Licenses from './pages/Licenses';
-import LoginPage from './pages/LoginPage'; // <-- NEW
-import RegisterPage from './pages/RegisterPage'; // <-- NEW
+import LoginPage from './pages/LoginPage';
+import Admin from './pages/Admin';
+
+const API_URL = 'http://localhost:8000/api';
 
 const theme = createTheme({
   palette: {
@@ -30,6 +33,36 @@ const ProtectedRoute = ({ children }) => {
     return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
+const AdminRoute = ({ children }) => {
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const checkAdminStatus = async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                if (token) {
+                    const response = await axios.get(`${API_URL}/auth/users/me`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    setIsAdmin(response.data.role === 'admin');
+                }
+            } catch (error) {
+                setIsAdmin(false);
+            } finally {
+                setLoading(false);
+            }
+        };
+        checkAdminStatus();
+    }, []);
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    return isAdmin ? children : <Navigate to="/" replace />;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -38,7 +71,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/licenses" element={<Layout><Licenses /></Layout>} />
           <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute><Layout><Services /></Layout></ProtectedRoute>} />
           <Route path="/pools" element={<ProtectedRoute><Layout><Pools /></Layout></ProtectedRoute>} />
@@ -46,7 +79,10 @@ function App() {
           <Route path="/waf" element={<ProtectedRoute><Layout><WAFRules /></Layout></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute><Layout><Logs /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-          <Route path="/licenses" element={<ProtectedRoute><Layout><Licenses /></Layout></ProtectedRoute>} />
+          <Route 
+            path="/admin" 
+            element={<ProtectedRoute><AdminRoute><Layout><Admin /></Layout></AdminRoute></ProtectedRoute>} 
+          />
         </Routes>
       </Router>
     </ThemeProvider>

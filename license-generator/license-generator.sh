@@ -42,6 +42,21 @@ while true; do
   fi
 done
 
+# Prompt for user limit
+read -p "Enter the maximum number of users allowed by this license: " user_limit
+if ! [[ "$user_limit" =~ ^[0-9]+$ ]]; then
+    echo "Error: User limit must be a positive integer."
+    exit 1
+fi
+
+# Prompt for allowed roles
+read -p "Enter allowed roles, comma-separated (e.g., admin,read-only): " allowed_roles
+if [ -z "$allowed_roles" ]; then
+  echo "Error: Allowed roles cannot be empty."
+  exit 1
+fi
+
+
 # Create the licenses directory if it doesn't exist on the host
 mkdir -p "$LICENSE_DIR"
 
@@ -55,6 +70,8 @@ docker run --rm \
   -e "SECRET_KEY=$SECRET_KEY" \
   -e "LICENSE_USER=$username" \
   -e "LICENSE_ROLE=$role" \
+  -e "USER_LIMIT=$user_limit" \
+  -e "ALLOWED_ROLES=$allowed_roles" \
   -e "OUTPUT_DIR=/output" \
   -v "$(pwd)/$LICENSE_DIR:/output" \
   --name "$CONTAINER_NAME" \

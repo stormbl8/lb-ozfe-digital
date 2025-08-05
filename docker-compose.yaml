@@ -48,7 +48,6 @@ services:
       - ./data/certs/dummy:/etc/nginx/certs/dummy
       - ./data/htpasswd:/data/htpasswd
       - nginx_logs:/var/log/nginx
-      - ./nginx/init.sh:/docker-entrypoint.d/init.sh # <-- ADD THIS LINE
     networks:
       - app-network
 
