@@ -1,6 +1,6 @@
 import os
+from jose import jwt, JWTError # Import JWTError
 import bcrypt
-from jose import jwt, JWTError # Changed
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Annotated
 
@@ -22,7 +22,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        # Extend the token expiration to 8 hours for a better user experience
+        expire = datetime.now(timezone.utc) + timedelta(hours=8)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, os.getenv("SECRET_KEY"), algorithm="HS256")
     return encoded_jwt
@@ -45,7 +46,8 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except jwt.PyJWTError:
+    # Correctly catch the exception from the 'jose' library
+    except JWTError:
         raise credentials_exception
     
     user = await get_user_from_db(username=username)
