@@ -16,29 +16,21 @@ const Pools = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [editingPool, setEditingPool] = useState(null);
-    const [isAdmin, setIsAdmin] = useState(false); // <-- NEW STATE
-
-    // Fetch user role
-    const fetchUserRole = async () => {
-        try {
-            const token = localStorage.getItem('access_token');
-            if (token) {
-                const response = await axios.get(`${API_URL}/auth/users/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                setIsAdmin(response.data.role === 'admin');
-            }
-        } catch (err) {
-            console.error("Failed to fetch user role.");
-            setIsAdmin(false);
-        }
-    };
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const fetchPools = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_URL}/pools`);
-            setPools(response.data);
+            const token = localStorage.getItem('access_token');
+            const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+
+            const [poolsRes, userRes] = await Promise.all([
+                axios.get(`${API_URL}/pools`, authHeaders),
+                axios.get(`${API_URL}/auth/users/me`, authHeaders)
+            ]);
+
+            setPools(poolsRes.data);
+            setIsAdmin(userRes.data.role === 'admin');
             setError('');
         } catch (err) {
             setError('Failed to fetch server pools.');
@@ -48,7 +40,6 @@ const Pools = () => {
     }, []);
 
     useEffect(() => {
-        fetchUserRole();
         fetchPools();
     }, [fetchPools]);
 
@@ -60,7 +51,10 @@ const Pools = () => {
     const handleDelete = async (poolId, poolName) => {
         if (window.confirm(`Are you sure you want to delete the pool "${poolName}"?`)) {
             try {
-                await axios.delete(`${API_URL}/pools/${poolId}`);
+                const token = localStorage.getItem('access_token');
+                await axios.delete(`${API_URL}/pools/${poolId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 fetchPools();
             } catch (err) {
                 setError(`Failed to delete ${poolName}: ${err.response?.data?.detail || err.message}`);
@@ -80,7 +74,7 @@ const Pools = () => {
                 />
             </Modal>
             <Paper>
-                {isAdmin && ( // <-- CONDITIONAL RENDER
+                {isAdmin && (
                     <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button variant="contained" onClick={() => setEditingPool({})}>Add Server Pool</Button>
                     </Box>
@@ -108,14 +102,14 @@ const Pools = () => {
                                         <TableCell align="right">
                                             <Tooltip title="Edit">
                                                 <span>
-                                                    <IconButton onClick={() => setEditingPool(pool)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                                    <IconButton onClick={() => setEditingPool(pool)} disabled={!isAdmin}>
                                                         <EditIcon />
                                                     </IconButton>
                                                 </span>
                                             </Tooltip>
                                             <Tooltip title="Delete">
                                                 <span>
-                                                    <IconButton onClick={() => handleDelete(pool.id, pool.name)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                                    <IconButton onClick={() => handleDelete(pool.id, pool.name)} disabled={!isAdmin}>
                                                         <DeleteIcon color="error" />
                                                     </IconButton>
                                                 </span>

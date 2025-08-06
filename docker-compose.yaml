@@ -1,5 +1,6 @@
 volumes:
-  nginx_logs:
+  app_data:
+  postgres_data:
 
 services:
   frontend:
@@ -21,16 +22,11 @@ services:
       - app-network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./data/nginx_proxy_configs:/data/nginx_proxy_configs
-      - ./data/nginx_stream_configs:/data/nginx_stream_configs
-      - ./data/certs:/data/certs
-      - ./data/waf_rules:/data/waf_rules
-      - nginx_logs:/var/log/nginx
-      - ./data/config:/app/data/config
-      - ./data/htpasswd:/data/htpasswd
-      - ./data/licenses:/data/licenses
+      - app_data:/data
     env_file:
       - .env
+    depends_on:
+      - postgres
 
   nginx:
     build: ./nginx
@@ -42,14 +38,23 @@ services:
       - "10000-10100:10000-10100/tcp"
       - "10000-10100:10000-10100/udp"
     volumes:
-      - ./data/nginx_proxy_configs:/etc/nginx/conf.d
-      - ./data/nginx_stream_configs:/etc/nginx/stream.d
-      - ./data/certs/letsencrypt:/etc/letsencrypt
-      - ./data/certs/dummy:/etc/nginx/certs/dummy
-      - ./data/htpasswd:/data/htpasswd
-      - nginx_logs:/var/log/nginx
+      # Mount the entire app_data volume to /data
+      - app_data:/data
     networks:
       - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lb-ui-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
 
 networks:
   app-network:

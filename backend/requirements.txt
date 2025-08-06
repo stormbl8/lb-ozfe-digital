@@ -13,3 +13,9 @@ bcrypt
 python-jose
 cryptography
 python-multipart
+passlib
+# --- New Database Dependencies ---
+sqlalchemy
+psycopg2-binary
+asyncpg
+alembic

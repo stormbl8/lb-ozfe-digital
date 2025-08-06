@@ -55,12 +55,16 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
             ...formData,
             backend_servers: formData.backend_servers.filter(s => s.host && s.port),
         };
+        
+        // Get the token and create auth headers
+        const token = localStorage.getItem('access_token');
+        const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
 
         try {
             if (isEditing) {
-                await axios.put(`${apiUrl}/pools/${formData.id}`, payload);
+                await axios.put(`${apiUrl}/pools/${formData.id}`, payload, authHeaders);
             } else {
-                await axios.post(`${apiUrl}/pools`, payload);
+                await axios.post(`${apiUrl}/pools`, payload, authHeaders);
             }
             toast.success('Pool saved successfully!', { id: toastId });
             setTimeout(onFinished, 1000);

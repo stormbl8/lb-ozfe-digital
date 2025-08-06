@@ -42,8 +42,10 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     }, [editingService]);
     
     useEffect(() => {
-        axios.get(`${apiUrl}/certificates`).then(res => setCerts(res.data));
-        axios.get(`${apiUrl}/pools`).then(res => setPools(res.data));
+        const token = localStorage.getItem('access_token');
+        const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+        axios.get(`${apiUrl}/certificates`, authHeaders).then(res => setCerts(res.data));
+        axios.get(`${apiUrl}/pools`, authHeaders).then(res => setPools(res.data));
     }, [apiUrl]);
 
     const handleChange = (e) => {
@@ -61,11 +63,15 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
             access_list_ips: Array.isArray(formData.access_list_ips) ? formData.access_list_ips.filter(ip => ip.trim() !== '') : [],
         };
 
+        // Get the token and create auth headers
+        const token = localStorage.getItem('access_token');
+        const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+
         try {
             if (isEditing) {
-                await axios.put(`${apiUrl}/services/${formData.id}`, payload);
+                await axios.put(`${apiUrl}/services/${formData.id}`, payload, authHeaders);
             } else {
-                await axios.post(`${apiUrl}/services`, payload);
+                await axios.post(`${apiUrl}/services`, payload, authHeaders);
             }
             toast.success('Proxy Host saved successfully!', { id: toastId });
             setTimeout(onFinished, 1000);
@@ -96,7 +102,6 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                     <Grid item xs={12}><Typography variant="h6">Details</Typography></Grid>
                     <Grid item xs={12}><TextField fullWidth label="Domain Name" name="domain_name" value={formData.domain_name || ''} onChange={handleChange} required /></Grid>
                     
-                    {/* --- THIS IS THE RESTORED DROPDOWN --- */}
                     <Grid item xs={12} md={6}>
                         <FormControl fullWidth>
                             <InputLabel>Forward Scheme</InputLabel>

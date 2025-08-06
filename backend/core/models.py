@@ -1,43 +1,112 @@
-import re
-from pydantic import BaseModel, Field, validator
+from sqlalchemy import (
+    Column, Integer, String, Boolean,
+    Text, ForeignKey, JSON
+)
+from sqlalchemy.orm import relationship
+from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
+
+from .database import Base
+
+# --- SQLAlchemy ORM Models (For Database Schema) ---
+
+class Pool(Base):
+    __tablename__ = "pools"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    backend_servers = Column(JSON, nullable=False, default=list)
+    load_balancing_algorithm = Column(String, default="round_robin")
+    services = relationship("Service", back_populates="pool")
+
+class Service(Base):
+    __tablename__ = "services"
+    id = Column(Integer, primary_key=True, index=True)
+    service_type = Column(String, default="http")
+    listen_port = Column(Integer, nullable=True)
+    domain_name = Column(String, unique=True, nullable=True)
+    pool_id = Column(Integer, ForeignKey("pools.id"), nullable=True)
+    enabled = Column(Boolean, default=True)
+    forward_scheme = Column(String, default="http")
+    websockets_support = Column(Boolean, default=True)
+    waf_enabled = Column(Boolean, default=False)
+    certificate_name = Column(String, default="dummy")
+    force_ssl = Column(Boolean, default=False)
+    http2_support = Column(Boolean, default=False)
+    hsts_enabled = Column(Boolean, default=False)
+    hsts_subdomains = Column(Boolean, default=False)
+    advanced_config = Column(Text, nullable=True)
+    pool = relationship("Pool", back_populates="services")
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
+    full_name = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, default="read-only")
+    disabled = Column(Boolean, default=False)
+
+
+# --- Pydantic Models (For API Validation & Responses) ---
+
+# Base model for user attributes
+class UserBase(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = None
+
+# Model used when creating a user (includes password)
+class UserCreate(UserBase):
+    password: str
+
+# Model used by admins to create a user (includes role)
+class AdminUserCreate(UserCreate):
+    role: Literal["admin", "read-only"] = "read-only"
+
+# A Pydantic model representing the user as it is in the database
+class UserInDB(UserBase):
+    id: int
+    role: str
+    hashed_password: str
+    class Config:
+        from_attributes = True
+
+# Model for API responses (never includes password)
+class UserResponse(UserBase):
+    id: int
+    role: str
+    disabled: bool
+    class Config:
+        from_attributes = True
 
 class BackendServer(BaseModel):
     host: str
     port: int
-    max_fails: Optional[int] = 3
-    fail_timeout: Optional[str] = "10s"
+    max_fails: int = 3
+    fail_timeout: str = "10s"
 
-    @validator('fail_timeout')
-    def validate_fail_timeout_format(cls, v):
-        if v is None:
-            return v
-        if not re.match(r'^\d+(ms|s|m|h|d|w|M|y)?$', v):
-            raise ValueError('Invalid format. Must be a number optionally followed by a unit like "s" or "m".')
-        return v
-
-class Pool(BaseModel):
-    id: Optional[int] = None
+class PoolBase(BaseModel):
     name: str
-    backend_servers: List[BackendServer] = []
-    load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash"] = "round_robin"
+    backend_servers: List[BackendServer]
+    load_balancing_algorithm: str
 
-    @validator('backend_servers')
-    def pool_must_not_be_empty(cls, v):
-        if not v:
-            raise ValueError('Server Pool must have at least one server.')
-        return v
+class PoolCreate(PoolBase):
+    pass
 
-class Service(BaseModel):
-    id: Optional[int] = None
-    service_type: Literal["http", "tcp", "udp"] = "http"
+class PoolResponse(PoolBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class ServiceBase(BaseModel):
+    service_type: str
     listen_port: Optional[int] = None
     domain_name: Optional[str] = None
     pool_id: Optional[int] = None
-    
     enabled: bool = True
     forward_scheme: str = "http"
-    
     websockets_support: bool = True
     waf_enabled: bool = False
     certificate_name: str = "dummy"
@@ -45,50 +114,20 @@ class Service(BaseModel):
     http2_support: bool = False
     hsts_enabled: bool = False
     hsts_subdomains: bool = False
-    
-    access_list_ips: List[str] = []
-    access_list_type: Literal["allow", "deny"] = "allow"
-    basic_auth_user: Optional[str] = None
-    basic_auth_pass: Optional[str] = None
-    
     advanced_config: Optional[str] = None
-    
-    @validator('domain_name', always=True)
-    def domain_name_required_for_http(cls, v, values):
-        if values.get('service_type') == 'http' and not v:
-            raise ValueError('Domain Name is required for HTTP services')
-        return v
 
-    @validator('listen_port', always=True)
-    def listen_port_required_for_stream(cls, v, values):
-        if values.get('service_type') in ['tcp', 'udp'] and not v:
-            raise ValueError('Listen Port is required for TCP/UDP services')
-        return v
-        
+class ServiceCreate(ServiceBase):
+    pass
+
+class ServiceResponse(ServiceBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 class RateLimitSettings(BaseModel):
     enabled: bool = False
     requests_per_second: int = Field(default=10, gt=0)
     burst: int = Field(default=20, gt=0)
 
 class AppSettings(BaseModel):
-    rate_limiting: RateLimitSettings = RateLimitSettings()
-
-# --- User Authentication Models (Refactored) ---
-class UserBase(BaseModel):
-    username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
-
-class User(UserBase):
-    password: Optional[str] = None
-
-class UserResponse(UserBase):
-    role: Literal["admin", "read-only"] = "read-only"
-
-class UserInDB(User):
-    hashed_password: str
-    role: Literal["admin", "read-only"] = "read-only"
-
-class AdminUserCreate(User):
-    role: Literal["admin", "read-only"] = "read-only"
+    rate_limiting: RateLimitSettings = Field(default_factory=RateLimitSettings)

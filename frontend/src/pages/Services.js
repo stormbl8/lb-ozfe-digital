@@ -38,33 +38,23 @@ const Services = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingService, setEditingService] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false); // <-- NEW STATE
-
-  // Fetch user role
-  const fetchUserRole = async () => {
-    try {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            const response = await axios.get(`${API_URL}/auth/users/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            setIsAdmin(response.data.role === 'admin');
-        }
-    } catch (err) {
-        console.error("Failed to fetch user role.");
-        setIsAdmin(false);
-    }
-  };
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [servicesRes, poolsRes] = await Promise.all([
-          axios.get(`${API_URL}/services`),
-          axios.get(`${API_URL}/pools`),
+      const token = localStorage.getItem('access_token');
+      const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+      
+      const [servicesRes, poolsRes, userRes] = await Promise.all([
+          axios.get(`${API_URL}/services`, authHeaders),
+          axios.get(`${API_URL}/pools`, authHeaders),
+          axios.get(`${API_URL}/auth/users/me`, authHeaders)
       ]);
+      
       setServices(servicesRes.data);
       setPools(poolsRes.data);
+      setIsAdmin(userRes.data.role === 'admin');
       setError('');
     } catch (err) {
       setError('Failed to fetch services or pools.');
@@ -74,7 +64,6 @@ const Services = () => {
   }, []);
 
   useEffect(() => {
-    fetchUserRole();
     const fetchHealth = async () => {
         try {
             const response = await axios.get(`${API_URL}/health`);
@@ -83,13 +72,10 @@ const Services = () => {
             console.error("Failed to fetch health status");
         }
     };
+    fetchData();
     fetchHealth();
     const interval = setInterval(fetchHealth, 10000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
   }, [fetchData]);
   
   const handleCloseForm = () => {
@@ -100,7 +86,10 @@ const Services = () => {
   const handleDelete = async (serviceId, serviceIdentifier) => {
     if (window.confirm(`Are you sure you want to delete the service for ${serviceIdentifier}?`)) {
         try {
-            await axios.delete(`${API_URL}/services/${serviceId}`);
+            const token = localStorage.getItem('access_token');
+            await axios.delete(`${API_URL}/services/${serviceId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             fetchData();
         } catch (err) {
             setError(`Failed to delete ${serviceIdentifier}: ${err.response?.data?.detail || err.message}`);
@@ -111,7 +100,10 @@ const Services = () => {
   const handleToggleEnabled = async (service) => {
     const updatedService = { ...service, enabled: !service.enabled };
     try {
-        await axios.put(`${API_URL}/services/${service.id}`, updatedService);
+        const token = localStorage.getItem('access_token');
+        await axios.put(`${API_URL}/services/${service.id}`, updatedService, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         fetchData();
     } catch (err) {
         const serviceIdentifier = service.domain_name || `Stream on port ${service.listen_port}`;
@@ -135,7 +127,7 @@ const Services = () => {
       </Modal>
       
       <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        {isAdmin && ( // <-- CONDITIONAL RENDER
+        {isAdmin && (
             <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
             </Box>
@@ -170,7 +162,7 @@ const Services = () => {
                                     checked={service.enabled} 
                                     onChange={() => handleToggleEnabled(service)} 
                                     color="primary" 
-                                    disabled={!isAdmin} // <-- NEW PROP
+                                    disabled={!isAdmin}
                                 />
                             </Tooltip>
                         </TableCell>
@@ -195,14 +187,14 @@ const Services = () => {
                         <TableCell align="right">
                           <Tooltip title="Edit">
                             <span>
-                                <IconButton onClick={() => setEditingService(service)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                <IconButton onClick={() => setEditingService(service)} disabled={!isAdmin}>
                                     <EditIcon />
                                 </IconButton>
                             </span>
                           </Tooltip>
                           <Tooltip title="Delete">
                             <span>
-                                <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)} disabled={!isAdmin}> {/* <-- NEW PROP */}
+                                <IconButton onClick={() => handleDelete(service.id, serviceIdentifier)} disabled={!isAdmin}>
                                     <DeleteIcon color="error" />
                                 </IconButton>
                             </span>
