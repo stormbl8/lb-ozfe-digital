@@ -1,6 +1,7 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload # <-- ADD THIS IMPORT
 from . import models, security
 
 logging.basicConfig(level=logging.INFO)
@@ -60,7 +61,10 @@ async def create_first_user(db: AsyncSession, admin_user: str, admin_email: str,
 # --- Pool CRUD Operations ---
 
 async def get_pool(db: AsyncSession, pool_id: int):
-    result = await db.execute(select(models.Pool).filter(models.Pool.id == pool_id))
+    # Eagerly load the 'services' relationship to prevent lazy-loading errors.
+    result = await db.execute(
+        select(models.Pool).options(selectinload(models.Pool.services)).filter(models.Pool.id == pool_id)
+    )
     return result.scalars().first()
 
 async def get_pool_by_name(db: AsyncSession, name: str):

@@ -69,7 +69,8 @@ async def delete_pool(
     """
     Delete a server pool.
     """
-    db_pool = await crud.get_pool(db, pool_id)
+    # This call now eagerly loads the 'services' relationship.
+    db_pool = await crud.get_pool(db, pool_id) 
     if not db_pool:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pool not found")
     
