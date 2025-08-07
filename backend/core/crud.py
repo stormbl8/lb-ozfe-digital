@@ -1,7 +1,7 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload # <-- ADD THIS IMPORT
+from sqlalchemy.orm import selectinload
 from . import models, security
 
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +17,17 @@ async def get_user_by_username(db: AsyncSession, username: str):
     result = await db.execute(select(models.User).filter(models.User.username == username))
     return result.scalars().first()
 
+async def get_user_by_email(db: AsyncSession, email: str):
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    return result.scalars().first()
+
 async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100):
-    result = await db.execute(select(models.User).offset(skip).limit(limit))
+    result = await db.execute(
+        select(models.User)
+        .filter(models.User.username != '')
+        .offset(skip)
+        .limit(limit)
+    )
     return result.scalars().all()
 
 async def create_user(db: AsyncSession, user: models.AdminUserCreate):
@@ -38,6 +47,24 @@ async def create_user(db: AsyncSession, user: models.AdminUserCreate):
     await db.commit()
     await db.refresh(db_user)
     return db_user
+
+async def update_user(db: AsyncSession, db_user: models.User, user_in: models.UserUpdate):
+    update_data = user_in.dict(exclude_unset=True)
+    if "password" in update_data and update_data["password"]:
+        hashed_password = security.get_password_hash(update_data["password"])
+        db_user.hashed_password = hashed_password
+    
+    for key, value in update_data.items():
+        if key != "password":
+            setattr(db_user, key, value)
+            
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+async def delete_user(db: AsyncSession, db_user: models.User):
+    await db.delete(db_user)
+    await db.commit()
 
 async def create_first_user(db: AsyncSession, admin_user: str, admin_email: str, admin_pass: str):
     """

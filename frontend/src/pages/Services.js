@@ -15,7 +15,7 @@ const HealthStatusIndicator = ({ service, pool, healthStatus }) => {
     if (!service.enabled) {
         return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#7f8c8d' }}><span style={{ color: '#7f8c8d', marginRight: '8px' }}>●</span> Disabled</Typography>;
     }
-    if (!pool || !pool.backend_servers || pool.backend_servers.length === 0) {
+    if (!pool || pool.backend_servers.length === 0) {
         return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#f39c12' }}><span style={{ color: '#f39c12', marginRight: '8px' }}>●</span> No Backends</Typography>;
     }
 

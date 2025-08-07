@@ -13,11 +13,11 @@ router = APIRouter(
 async def websocket_log_endpoint(websocket: WebSocket, log_type: str):
     await websocket.accept()
     logger.info(f"WebSocket connection accepted for {log_type} logs.")
-    
+
     # --- CORRECTED LINE ---
     # The logs are now located in the shared /data volume
     log_file = f"/data/logs/nginx/{log_type}.log"
-    
+
     try:
         await tail_file(websocket, log_file)
     finally:

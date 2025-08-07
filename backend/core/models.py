@@ -52,14 +52,19 @@ class User(Base):
 
 # Base model for user attributes
 class UserBase(BaseModel):
-    username: str
+    username: str = Field(..., min_length=1, description="Username cannot be empty.")
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
 
 # Model used when creating a user (includes password)
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=6, description="Password must be at least 6 characters.")
+
+# Model for updating a user
+class UserUpdate(UserBase):
+    password: Optional[str] = Field(None, min_length=6, description="Password must be at least 6 characters.")
+    role: Literal["admin", "read-only"]
 
 # Model used by admins to create a user (includes role)
 class AdminUserCreate(UserCreate):

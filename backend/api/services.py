@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.get("", response_model=List[models.ServiceResponse])
 async def list_services(
-    db: AsyncSession = Depends(get_db), 
+    db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """
@@ -24,8 +24,8 @@ async def list_services(
 
 @router.get("/{service_id}", response_model=models.ServiceResponse)
 async def get_service(
-    service_id: int, 
-    db: AsyncSession = Depends(get_db), 
+    service_id: int,
+    db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """
@@ -62,7 +62,7 @@ async def update_service(
     db_service = await crud.get_service(db, service_id)
     if not db_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
-    
+
     updated_service = await crud.update_service(db, db_service, service_data)
     await regenerate_all_nginx_configs(db)
     return updated_service
@@ -79,7 +79,7 @@ async def delete_service(
     db_service = await crud.get_service(db, service_id)
     if not db_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
-    
+
     await crud.delete_service(db, db_service)
     await regenerate_all_nginx_configs(db)
     return

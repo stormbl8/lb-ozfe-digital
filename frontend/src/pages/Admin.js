@@ -3,8 +3,11 @@ import axios from 'axios';
 import {
     Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Typography, Button, TextField, Select, MenuItem, FormControl, InputLabel,
-    CircularProgress, Alert
+    CircularProgress, Alert, IconButton, Tooltip, Dialog, DialogActions,
+    DialogContent, DialogContentText, DialogTitle
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import toast from 'react-hot-toast';
 
 const API_URL = 'http://localhost:8000/api';
@@ -19,6 +22,8 @@ const Admin = () => {
         password: '',
         role: 'read-only'
     });
+    const [editingUser, setEditingUser] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -45,6 +50,11 @@ const Admin = () => {
         setNewUser(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditingUser(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleCreateUser = async (e) => {
         e.preventDefault();
         const toastId = toast.loading('Creating user...');
@@ -59,6 +69,53 @@ const Admin = () => {
         } catch (err) {
             const errorMessage = err.response?.data?.detail || err.message;
             toast.error(`Error: ${errorMessage}`, { id: toastId });
+        }
+    };
+
+    const handleOpenEditModal = (user) => {
+        setEditingUser({ ...user, password: '' });
+        setIsEditModalOpen(true);
+    };
+
+    const handleCloseEditModal = () => {
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+    };
+
+    const handleUpdateUser = async () => {
+        const toastId = toast.loading('Updating user...');
+        try {
+            const token = localStorage.getItem('access_token');
+            const payload = { ...editingUser };
+            if (!payload.password) {
+                delete payload.password; // Don't send empty password
+            }
+            await axios.put(`${API_URL}/auth/users/${editingUser.id}`, payload, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            toast.success('User updated successfully!', { id: toastId });
+            handleCloseEditModal();
+            fetchUsers();
+        } catch (err) {
+            const errorMessage = err.response?.data?.detail || err.message;
+            toast.error(`Error: ${errorMessage}`, { id: toastId });
+        }
+    };
+
+    const handleDeleteUser = async (userId, username) => {
+        if (window.confirm(`Are you sure you want to delete the user "${username}"?`)) {
+            const toastId = toast.loading('Deleting user...');
+            try {
+                const token = localStorage.getItem('access_token');
+                await axios.delete(`${API_URL}/auth/users/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                toast.success('User deleted successfully!', { id: toastId });
+                fetchUsers();
+            } catch (err) {
+                const errorMessage = err.response?.data?.detail || err.message;
+                toast.error(`Error: ${errorMessage}`, { id: toastId });
+            }
         }
     };
 
@@ -102,17 +159,30 @@ const Admin = () => {
                                 <TableCell>Username</TableCell>
                                 <TableCell>Email</TableCell>
                                 <TableCell>Role</TableCell>
+                                <TableCell align="right">Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={3} align="center"><CircularProgress /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={4} align="center"><CircularProgress /></TableCell></TableRow>
                             ) : (
                                 users.map((user) => (
-                                    <TableRow key={user.username}>
+                                    <TableRow key={user.id}>
                                         <TableCell>{user.username}</TableCell>
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell>{user.role}</TableCell>
+                                        <TableCell align="right">
+                                            <Tooltip title="Edit">
+                                                <IconButton onClick={() => handleOpenEditModal(user)}>
+                                                    <EditIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Delete">
+                                                <IconButton onClick={() => handleDeleteUser(user.id, user.username)}>
+                                                    <DeleteIcon color="error" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -120,6 +190,30 @@ const Admin = () => {
                     </Table>
                 </TableContainer>
             </Paper>
+
+            {/* Edit User Modal */}
+            <Dialog open={isEditModalOpen} onClose={handleCloseEditModal}>
+                <DialogTitle>Edit User</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Modify the user's details below. Leave the password field blank to keep it unchanged.
+                    </DialogContentText>
+                    <TextField margin="dense" label="Username" fullWidth name="username" value={editingUser?.username || ''} onChange={handleEditInputChange} />
+                    <TextField margin="dense" label="Email" fullWidth name="email" type="email" value={editingUser?.email || ''} onChange={handleEditInputChange} />
+                    <TextField margin="dense" label="Password" fullWidth name="password" type="password" placeholder="New Password" onChange={handleEditInputChange} />
+                    <FormControl fullWidth margin="dense">
+                        <InputLabel>Role</InputLabel>
+                        <Select name="role" value={editingUser?.role || 'read-only'} onChange={handleEditInputChange} label="Role">
+                            <MenuItem value="read-only">Read-Only</MenuItem>
+                            <MenuItem value="admin">Admin</MenuItem>
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseEditModal}>Cancel</Button>
+                    <Button onClick={handleUpdateUser} variant="contained">Save</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

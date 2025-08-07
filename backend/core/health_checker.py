@@ -16,7 +16,7 @@ async def check_server_health(host: str, port: int, scheme: str) -> str:
     try:
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(url, timeout=5.0)
-            if 200 <= response.status_code < 500: 
+            if 200 <= response.status_code < 500:
                 return "Online"
             else:
                 return "Offline"
@@ -35,15 +35,16 @@ async def health_check_task():
 
             unique_servers = set()
             for service in services:
-                pool = next((p for p in pools if p.id == service.pool_id), None)
-                if pool and service.enabled:
-                    scheme = service.forward_scheme if service.service_type == 'http' else 'http'
-                    for server in pool.backend_servers:
-                        unique_servers.add((server['host'], server['port'], scheme))
-            
+                if service.service_type == 'http':
+                    pool = next((p for p in pools if p.id == service.pool_id), None)
+                    if pool and service.enabled:
+                        scheme = service.forward_scheme
+                        for server in pool.backend_servers:
+                            unique_servers.add((server['host'], server['port'], scheme))
+
             tasks = [check_server_health(host, port, scheme) for host, port, scheme in unique_servers]
             results = await asyncio.gather(*tasks)
-            
+
             for i, (host, port, scheme) in enumerate(unique_servers):
                 HEALTH_STATUS_CACHE[f"{host}:{port}"] = results[i]
 

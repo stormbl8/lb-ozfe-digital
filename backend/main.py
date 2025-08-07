@@ -23,15 +23,17 @@ async def startup_event():
 
     # Run background tasks
     asyncio.create_task(health_check_task())
-    
+
     # Securely create the first admin user
     admin_user = os.getenv("ADMIN_USER", "admin")
     admin_email = os.getenv("ADMIN_EMAIL", "admin@example.com")
     admin_pass = os.getenv("ADMIN_PASS")
     if admin_pass:
         db = AsyncSessionLocal()
-        await crud.create_first_user(db, admin_user, admin_email, admin_pass)
-        await db.close()
+        try:
+            await crud.create_first_user(db, admin_user, admin_email, admin_pass)
+        finally:
+            await db.close()
 
 app.add_middleware(
     CORSMiddleware,

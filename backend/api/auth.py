@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from core import crud, models, security
 from core.database import get_db
-# Note: license_manager is no longer used, its logic is handled here
-# from core.license_manager import read_license, save_license 
 
 router = APIRouter(
     prefix="/api/auth",
@@ -57,18 +56,65 @@ async def create_new_user(
     """
     Create a new user with a specific role. Only accessible by admin users.
     """
-    db_user = await crud.get_user_by_username(db, username=user_data.username)
-    if db_user:
+    db_user_by_username = await crud.get_user_by_username(db, username=user_data.username)
+    if db_user_by_username:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
 
-    # In a real application, you would add your license check logic here
-    # For example:
-    # license_details = read_license() 
-    # users = await crud.get_users(db)
-    # if len(users) >= license_details.get("user_limit", 1):
-    #     raise HTTPException(status_code=403, detail="User limit reached")
+    if user_data.email:
+        db_user_by_email = await crud.get_user_by_email(db, email=user_data.email)
+        if db_user_by_email:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     
-    return await crud.create_user(db=db, user=user_data)
+    try:
+        new_user = await crud.create_user(db=db, user=user_data)
+        return new_user
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this username or email already exists.")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+@router.put("/users/{user_id}", response_model=models.UserResponse)
+async def update_user(
+    user_id: int,
+    user_data: models.UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin_user: models.User = Depends(security.get_current_admin_user)
+):
+    """
+    Update a user's details. Admin only.
+    """
+    db_user = await crud.get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if user_data.email and db_user.email != user_data.email:
+        existing_user = await crud.get_user_by_email(db, email=user_data.email)
+        if existing_user:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    updated_user = await crud.update_user(db, db_user, user_data)
+    return updated_user
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin_user: models.User = Depends(security.get_current_admin_user)
+):
+    """
+    Delete a user. Admin only.
+    """
+    db_user = await crud.get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if db_user.username == admin_user.username:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot delete your own account.")
+
+    await crud.delete_user(db, db_user)
+    return
 
 @router.post("/license/upload")
 async def upload_license(
@@ -86,11 +132,6 @@ async def upload_license(
         license_username = decoded_token.get("sub")
         license_role = decoded_token.get("role")
         
-        # Here you would also extract and save license limits
-        # user_limit = decoded_token.get("user_limit")
-        # allowed_roles = decoded_token.get("allowed_roles")
-        # save_license({"user_limit": user_limit, "allowed_roles": allowed_roles})
-
         if not license_username or not license_role:
             raise HTTPException(status_code=422, detail="Invalid JWT token payload. Missing required claims.")
 
