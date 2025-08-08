@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
     Box, TextField, Button, Select, MenuItem, FormControl, InputLabel, RadioGroup, Radio,
-    Checkbox, FormControlLabel, FormGroup, Grid, Typography, Divider
+    Checkbox, FormControlLabel, FormGroup, Grid, Typography, Divider, Alert
 } from '@mui/material';
 
 const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
@@ -12,6 +12,8 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         listen_port: '',
         domain_name: '',
         pool_id: '',
+        gslb_service_id: '',
+        datacenter_id: '',
         enabled: true,
         forward_scheme: 'http',
         websockets_support: true,
@@ -31,6 +33,8 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     const [formData, setFormData] = useState(blankService);
     const [certs, setCerts] = useState([]);
     const [pools, setPools] = useState([]);
+    const [datacenters, setDatacenters] = useState([]);
+    const [gslbServices, setGslbServices] = useState([]);
     const isEditing = !!(formData && formData.id);
 
     useEffect(() => {
@@ -44,8 +48,25 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     useEffect(() => {
         const token = localStorage.getItem('access_token');
         const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
-        axios.get(`${apiUrl}/certificates`, authHeaders).then(res => setCerts(res.data));
-        axios.get(`${apiUrl}/pools`, authHeaders).then(res => setPools(res.data));
+        
+        const fetchData = async () => {
+            try {
+                const [certsRes, poolsRes, datacentersRes, gslbServicesRes] = await Promise.all([
+                    axios.get(`${apiUrl}/certificates`, authHeaders),
+                    axios.get(`${apiUrl}/pools`, authHeaders),
+                    axios.get(`${apiUrl}/gslb/datacenters`, authHeaders),
+                    axios.get(`${apiUrl}/gslb/services`, authHeaders),
+                ]);
+                setCerts(certsRes.data);
+                setPools(poolsRes.data);
+                setDatacenters(datacentersRes.data);
+                setGslbServices(gslbServicesRes.data);
+            } catch (error) {
+                toast.error('Failed to fetch required data.');
+                console.error(error);
+            }
+        };
+        fetchData();
     }, [apiUrl]);
 
     const handleChange = (e) => {
@@ -59,11 +80,12 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         const payload = {
             ...formData,
             pool_id: parseInt(formData.pool_id, 10),
+            gslb_service_id: formData.gslb_service_id ? parseInt(formData.gslb_service_id, 10) : null,
+            datacenter_id: formData.datacenter_id ? parseInt(formData.datacenter_id, 10) : null,
             listen_port: formData.listen_port ? parseInt(formData.listen_port, 10) : null,
             access_list_ips: Array.isArray(formData.access_list_ips) ? formData.access_list_ips.filter(ip => ip.trim() !== '') : [],
         };
-
-        // Get the token and create auth headers
+        
         const token = localStorage.getItem('access_token');
         const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
 
@@ -104,19 +126,38 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                     
                     <Grid item xs={12} md={6}>
                         <FormControl fullWidth>
-                            <InputLabel>Forward Scheme</InputLabel>
-                            <Select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange} label="Forward Scheme">
-                                <MenuItem value="http">http</MenuItem>
-                                <MenuItem value="https">https</MenuItem>
+                            <InputLabel>Assign to Pool</InputLabel>
+                            <Select name="pool_id" value={formData.pool_id || ''} onChange={handleChange} label="Assign to Pool" required>
+                                {pools.map(pool => <MenuItem key={pool.id} value={pool.id}>{pool.name}</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
                         <FormControl fullWidth>
-                            <InputLabel>Assign to Pool</InputLabel>
-                            <Select name="pool_id" value={formData.pool_id || ''} onChange={handleChange} label="Assign to Pool" required>
-                                {pools.map(pool => <MenuItem key={pool.id} value={pool.id}>{pool.name}</MenuItem>)}
+                            <InputLabel>GSLB Service</InputLabel>
+                            <Select name="gslb_service_id" value={formData.gslb_service_id || ''} onChange={handleChange} label="GSLB Service" required>
+                                <MenuItem value=""><em>None</em></MenuItem>
+                                {gslbServices.map(service => <MenuItem key={service.id} value={service.id}>{service.domain_name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                        <FormControl fullWidth>
+                            <InputLabel>Datacenter</InputLabel>
+                            <Select name="datacenter_id" value={formData.datacenter_id || ''} onChange={handleChange} label="Datacenter" required>
+                                {datacenters.map(dc => <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} md={6}>
+                        <FormControl fullWidth>
+                            <InputLabel>Forward Scheme</InputLabel>
+                            <Select name="forward_scheme" value={formData.forward_scheme} onChange={handleChange} label="Forward Scheme">
+                                <MenuItem value="http">http</MenuItem>
+                                <MenuItem value="https">https</MenuItem>
                             </Select>
                         </FormControl>
                     </Grid>
@@ -142,6 +183,14 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                             <InputLabel>Assign to Pool</InputLabel>
                             <Select name="pool_id" value={formData.pool_id || ''} onChange={handleChange} label="Assign to Pool" required>
                                 {pools.map(pool => <MenuItem key={pool.id} value={pool.id}>{pool.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                        <FormControl fullWidth>
+                            <InputLabel>Datacenter</InputLabel>
+                            <Select name="datacenter_id" value={formData.datacenter_id || ''} onChange={handleChange} label="Datacenter" required>
+                                {datacenters.map(dc => <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Grid>

@@ -2,6 +2,7 @@ import os
 import jinja2
 import logging
 import docker
+import shutil
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.apache import HtpasswdFile
@@ -28,10 +29,11 @@ def render_stream_config(service: Service, pool: Pool) -> str:
     return template.render(service=service, pool=pool)
 
 def reload_nginx():
-    """Attempts to test and reload NGINX configuration."""
+    """Attempts to test and reload NGINX configuration for the local container."""
     logger.info("Running 'nginx -t' to test configuration...")
     try:
         client = docker.from_env()
+        # The NGINX container is assumed to be named 'nginx-proxy' in the local docker-compose.
         nginx_container = client.containers.get("nginx-proxy")
         test_result = nginx_container.exec_run("nginx -t")
         if test_result.exit_code != 0:
@@ -54,10 +56,14 @@ def reload_nginx():
         logger.error(f"Error during NGINX reload operation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reload NGINX: {e}")
 
-async def regenerate_all_nginx_configs(db: AsyncSession):
-    """Regenerates all NGINX configurations and reloads NGINX."""
-    logger.info("Regenerating all NGINX configurations.")
-    services = await crud.get_services(db)
+async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int):
+    """
+    Regenerates NGINX configurations for a specific datacenter and reloads NGINX.
+    """
+    logger.info(f"Regenerating NGINX configurations for datacenter ID: {datacenter_id}.")
+    
+    # Get all services and pools for the specified datacenter.
+    services = await crud.get_services_by_datacenter(db, datacenter_id)
     pools = await crud.get_pools(db)
     pools_by_id = {pool.id: pool for pool in pools}
 
@@ -65,7 +71,7 @@ async def regenerate_all_nginx_configs(db: AsyncSession):
     os.makedirs(STREAM_CONFIG_DIR, exist_ok=True)
     os.makedirs(HTPASSWD_DIR, exist_ok=True)
 
-    # Clear old config files
+    # Clear old config files to ensure only active ones are present.
     for dir_path in [CONFIG_DIR, STREAM_CONFIG_DIR]:
         for f in os.listdir(dir_path):
             os.remove(os.path.join(dir_path, f))
@@ -75,10 +81,13 @@ async def regenerate_all_nginx_configs(db: AsyncSession):
             continue
         pool = pools_by_id.get(service.pool_id)
         if not pool or not pool.backend_servers:
+            logger.warning(
+                f"Service '{service.domain_name or service.id}' is enabled but its pool "
+                f"'{pool.name if pool else 'N/A'}' has no backend servers. Skipping config generation."
+            )
             continue
 
         try:
-            # --- THIS IS THE FIX ---
             if service.service_type == "http":
                 config_content = render_http_config(service, pool)
                 config_path = os.path.join(CONFIG_DIR, f"{service.id}-{service.domain_name}.conf")
@@ -103,4 +112,5 @@ async def regenerate_all_nginx_configs(db: AsyncSession):
         except Exception as e:
             logger.error(f"Failed to write config for service {service.id}: {e}")
 
+    # Reload the local NGINX container after all configs are written.
     reload_nginx()

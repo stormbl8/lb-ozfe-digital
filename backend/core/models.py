@@ -14,10 +14,9 @@ class Monitor(Base):
     __tablename__ = "monitors"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
-    type = Column(String, default="http") # 'http' or 'tcp'
-    interval = Column(Integer, default=15) # seconds
-    timeout = Column(Integer, default=5) # seconds
-    # HTTP specific settings
+    type = Column(String, default="http")
+    interval = Column(Integer, default=15)
+    timeout = Column(Integer, default=5)
     http_method = Column(String, default="GET")
     path = Column(String, default="/")
     expected_status = Column(Integer, default=200)
@@ -34,12 +33,36 @@ class Pool(Base):
     monitor = relationship("Monitor", back_populates="pools")
     services = relationship("Service", back_populates="pool")
 
+# --- NEW MODEL: Datacenter ---
+class Datacenter(Base):
+    __tablename__ = "datacenters"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    location = Column(String, nullable=True)
+    nginx_ip = Column(String, nullable=False)
+    api_url = Column(String, nullable=False)
+
+# --- NEW MODEL: GSLBService ---
+class GSLBService(Base):
+    __tablename__ = "gslb_services"
+    id = Column(Integer, primary_key=True, index=True)
+    domain_name = Column(String, unique=True, index=True, nullable=False)
+    load_balancing_algorithm = Column(String, default="round_robin")
+    datacenters = Column(JSON, nullable=False, default=list) # List of datacenter IDs
+    services = relationship("Service", back_populates="gslb_service")
+    
+# --- UPDATED MODEL: Service ---
 class Service(Base):
     __tablename__ = "services"
     id = Column(Integer, primary_key=True, index=True)
     service_type = Column(String, default="http")
     listen_port = Column(Integer, nullable=True)
-    domain_name = Column(String, unique=True, nullable=True)
+    domain_name = Column(String, nullable=True) # Unique constraint is removed
+    
+    # New columns for GSLB
+    gslb_service_id = Column(Integer, ForeignKey("gslb_services.id"), nullable=True)
+    datacenter_id = Column(Integer, ForeignKey("datacenters.id"), nullable=True)
+    
     pool_id = Column(Integer, ForeignKey("pools.id"), nullable=True)
     enabled = Column(Boolean, default=True)
     forward_scheme = Column(String, default="http")
@@ -55,6 +78,7 @@ class Service(Base):
     basic_auth_pass = Column(String, nullable=True)
     advanced_config = Column(Text, nullable=True)
     pool = relationship("Pool", back_populates="services")
+    gslb_service = relationship("GSLBService", back_populates="services")
 
 class User(Base):
     __tablename__ = "users"
@@ -135,14 +159,46 @@ class PoolResponse(PoolBase):
     id: int
     class Config:
         from_attributes = True
+        
+# --- NEW PYDANTIC MODELS FOR DATACENTER ---
+class DatacenterBase(BaseModel):
+    name: str
+    location: Optional[str] = None
+    nginx_ip: str
+    api_url: str
 
+class DatacenterCreate(DatacenterBase):
+    pass
+
+class DatacenterResponse(DatacenterBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# --- NEW PYDANTIC MODELS FOR GSLB SERVICE ---
+class GSLBServiceBase(BaseModel):
+    domain_name: str
+    load_balancing_algorithm: Literal["round_robin", "geo"] = "round_robin"
+    datacenters: List[int]
+
+class GSLBServiceCreate(GSLBServiceBase):
+    pass
+
+class GSLBServiceResponse(GSLBServiceBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# --- UPDATED PYDANTIC MODELS FOR SERVICE ---
 class ServiceBase(BaseModel):
-    service_type: str
+    service_type: Literal["http", "tcp", "udp"]
     listen_port: Optional[int] = None
     domain_name: Optional[str] = None
     pool_id: Optional[int] = None
+    gslb_service_id: Optional[int] = None # New Field
+    datacenter_id: Optional[int] = None # New Field
     enabled: bool = True
-    forward_scheme: str = "http"
+    forward_scheme: Literal["http", "https"] = "http"
     websockets_support: bool = True
     waf_enabled: bool = False
     session_persistence: bool = False

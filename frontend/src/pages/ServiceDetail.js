@@ -28,6 +28,8 @@ const ServiceDetail = () => {
     const [service, setService] = useState(null);
     const [pool, setPool] = useState(null);
     const [monitor, setMonitor] = useState(null);
+    const [datacenter, setDatacenter] = useState(null); // NEW STATE
+    const [gslbService, setGslbService] = useState(null); // NEW STATE
     const [health, setHealth] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -38,11 +40,13 @@ const ServiceDetail = () => {
             const token = localStorage.getItem('access_token');
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
             
-            const [serviceRes, poolsRes, healthRes, monitorsRes] = await Promise.all([
+            const [serviceRes, poolsRes, healthRes, monitorsRes, datacentersRes, gslbServicesRes] = await Promise.all([
                 axios.get(`${API_URL}/services/${serviceId}`, authHeaders),
                 axios.get(`${API_URL}/pools`, authHeaders),
                 axios.get(`${API_URL}/health`, authHeaders),
-                axios.get(`${API_URL}/monitors`, authHeaders)
+                axios.get(`${API_URL}/monitors`, authHeaders),
+                axios.get(`${API_URL}/gslb/datacenters`, authHeaders), // NEW FETCH
+                axios.get(`${API_URL}/gslb/services`, authHeaders)    // NEW FETCH
             ]);
 
             const currentService = serviceRes.data;
@@ -56,6 +60,16 @@ const ServiceDetail = () => {
                     const associatedMonitor = monitorsRes.data.find(m => m.id === associatedPool.monitor_id);
                     setMonitor(associatedMonitor);
                 }
+            }
+
+            // NEW LOGIC TO FIND DATACENTER AND GSLB SERVICE
+            if (currentService.datacenter_id) {
+                const associatedDatacenter = datacentersRes.data.find(dc => dc.id === currentService.datacenter_id);
+                setDatacenter(associatedDatacenter);
+            }
+            if (currentService.gslb_service_id) {
+                const associatedGslbService = gslbServicesRes.data.find(gslb => gslb.id === currentService.gslb_service_id);
+                setGslbService(associatedGslbService);
             }
             
             setError('');
@@ -103,6 +117,16 @@ const ServiceDetail = () => {
                     <DetailItem title="Session Persistence">{service.session_persistence ? 'Yes' : 'No'}</DetailItem>
                     <DetailItem title="Websockets Support">{service.websockets_support ? 'Yes' : 'No'}</DetailItem>
                     <DetailItem title="HTTP/2 Support">{service.http2_support ? 'Yes' : 'No'}</DetailItem>
+                    
+                    {/* NEW DETAIL ITEMS */}
+                    <Grid item xs={12} sm={6} md={4}>
+                        <Typography variant="subtitle2" color="text.secondary">Datacenter</Typography>
+                        <Typography variant="body1">{datacenter?.name || 'N/A'} ({datacenter?.location || 'N/A'})</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                        <Typography variant="subtitle2" color="text.secondary">GSLB Service</Typography>
+                        <Typography variant="body1">{gslbService?.domain_name || 'N/A'}</Typography>
+                    </Grid>
                 </Grid>
             </Paper>
 

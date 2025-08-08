@@ -3,7 +3,8 @@ import axios from 'axios';
 import { Link as RouterLink } from 'react-router-dom';
 import {
     Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Typography, Button, IconButton, Switch, Tooltip, CircularProgress, Alert, Link
+    Typography, Button, IconButton, Switch, Tooltip, CircularProgress, Alert, Link,
+    Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -36,53 +37,67 @@ const HealthStatusIndicator = ({ service, pool, healthStatus }) => {
 const Services = () => {
   const [services, setServices] = useState([]);
   const [pools, setPools] = useState([]);
+  const [datacenters, setDatacenters] = useState([]);
+  const [selectedDatacenter, setSelectedDatacenter] = useState('');
   const [healthStatus, setHealthStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingService, setEditingService] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchServicesAndData = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('access_token');
       const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
       
-      const [servicesRes, poolsRes, userRes] = await Promise.all([
-          axios.get(`${API_URL}/services`, authHeaders),
+      const [poolsRes, userRes, datacentersRes, healthRes] = await Promise.all([
           axios.get(`${API_URL}/pools`, authHeaders),
-          axios.get(`${API_URL}/auth/users/me`, authHeaders)
+          axios.get(`${API_URL}/auth/users/me`, authHeaders),
+          axios.get(`${API_URL}/gslb/datacenters`, authHeaders),
+          axios.get(`${API_URL}/health`, authHeaders)
       ]);
       
-      setServices(servicesRes.data);
       setPools(poolsRes.data);
       setIsAdmin(userRes.data.role === 'admin');
+      setDatacenters(datacentersRes.data);
+      setHealthStatus(healthRes.data);
+      
+      const dcIdToFetch = selectedDatacenter || (datacentersRes.data.length > 0 ? datacentersRes.data[0].id : null);
+      if (dcIdToFetch) {
+        const servicesRes = await axios.get(`${API_URL}/services?datacenter_id=${dcIdToFetch}`, authHeaders);
+        setServices(servicesRes.data);
+        if (!selectedDatacenter) {
+          setSelectedDatacenter(dcIdToFetch);
+        }
+      } else {
+        setServices([]);
+      }
+
       setError('');
     } catch (err) {
-      setError('Failed to fetch services or pools.');
+      setError('Failed to fetch services, pools, or datacenters.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDatacenter]);
 
   useEffect(() => {
-    const fetchHealth = async () => {
-        try {
-            const response = await axios.get(`${API_URL}/health`);
-            setHealthStatus(response.data);
-        } catch (err) {
-            console.error("Failed to fetch health status");
-        }
-    };
-    fetchData();
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 10000);
+    fetchServicesAndData();
+    const interval = setInterval(async () => {
+      try {
+        const healthRes = await axios.get(`${API_URL}/health`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } });
+        setHealthStatus(healthRes.data);
+      } catch (err) {
+        console.error("Failed to fetch health status", err);
+      }
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchServicesAndData]);
   
   const handleCloseForm = () => {
     setEditingService(null);
-    fetchData();
+    fetchServicesAndData();
   };
 
   const handleDelete = async (serviceId, serviceIdentifier) => {
@@ -92,7 +107,7 @@ const Services = () => {
             await axios.delete(`${API_URL}/services/${serviceId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchData();
+            fetchServicesAndData();
         } catch (err) {
             setError(`Failed to delete ${serviceIdentifier}: ${err.response?.data?.detail || err.message}`);
         }
@@ -106,7 +121,7 @@ const Services = () => {
         await axios.put(`${API_URL}/services/${service.id}`, updatedService, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        fetchData();
+        fetchServicesAndData();
     } catch (err) {
         const serviceIdentifier = service.domain_name || `Stream on port ${service.listen_port}`;
         setError(`Failed to update ${serviceIdentifier}: ${err.response?.data?.detail || err.message}`);
@@ -129,11 +144,23 @@ const Services = () => {
       </Modal>
       
       <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        {isAdmin && (
-            <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <FormControl sx={{ minWidth: 200 }}>
+                <InputLabel>Datacenter</InputLabel>
+                <Select
+                    value={selectedDatacenter}
+                    label="Datacenter"
+                    onChange={(e) => setSelectedDatacenter(e.target.value)}
+                >
+                    {datacenters.map(dc => (
+                        <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+            {isAdmin && (
                 <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
-            </Box>
-        )}
+            )}
+        </Box>
         
         {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
         
@@ -144,6 +171,7 @@ const Services = () => {
                 <TableCell sx={{width: '1%'}}>Enabled</TableCell>
                 <TableCell>Source</TableCell>
                 <TableCell>Assigned Pool</TableCell>
+                <TableCell>Datacenter</TableCell>
                 <TableCell>Extras</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -151,7 +179,7 @@ const Services = () => {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
               ) : services.length > 0 ? (
                 services.map((service) => {
                   const pool = getPoolById(service.pool_id);
@@ -176,6 +204,9 @@ const Services = () => {
                         </TableCell>
                         <TableCell>
                             {pool ? pool.name : 'Not Assigned'}
+                        </TableCell>
+                        <TableCell>
+                            {datacenters.find(dc => dc.id === service.datacenter_id)?.name || 'N/A'}
                         </TableCell>
                         <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -215,7 +246,7 @@ const Services = () => {
                   )
                 })
               ) : (
-                <TableRow><TableCell colSpan={6} align="center">No hosts configured yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center">No hosts configured yet for this datacenter.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

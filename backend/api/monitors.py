@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import crud, models
 from core.database import get_db
+from core.nginx_manager import regenerate_configs_for_datacenter
 from core.security import get_current_admin_user, get_current_user
 
 router = APIRouter(
@@ -27,6 +28,8 @@ async def add_new_monitor(
 ):
     """Add a new health monitor."""
     new_monitor = await crud.create_monitor(db, monitor_data)
+    # Assume a single datacenter for now
+    await regenerate_configs_for_datacenter(db, datacenter_id=1)
     return new_monitor
 
 @router.put("/{monitor_id}", response_model=models.MonitorResponse)
@@ -42,6 +45,8 @@ async def update_monitor(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
     
     updated_monitor = await crud.update_monitor(db, db_monitor, monitor_data)
+    # Assume a single datacenter for now
+    await regenerate_configs_for_datacenter(db, datacenter_id=1)
     return updated_monitor
 
 @router.delete("/{monitor_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -58,4 +63,6 @@ async def delete_monitor(
     # Optional: Add a check here to prevent deleting monitors that are in use by pools
     
     await crud.delete_monitor(db, db_monitor)
+    # Assume a single datacenter for now
+    await regenerate_configs_for_datacenter(db, datacenter_id=1)
     return

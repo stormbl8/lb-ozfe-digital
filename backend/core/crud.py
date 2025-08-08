@@ -151,11 +151,35 @@ async def delete_pool(db: AsyncSession, db_pool: models.Pool):
 # --- Service CRUD Operations ---
 
 async def get_service(db: AsyncSession, service_id: int):
-    result = await db.execute(select(models.Service).filter(models.Service.id == service_id))
+    result = await db.execute(
+        select(models.Service)
+        .options(
+            selectinload(models.Service.pool),
+            selectinload(models.Service.gslb_service)
+        )
+        .filter(models.Service.id == service_id)
+    )
     return result.scalars().first()
     
 async def get_services(db: AsyncSession):
-    result = await db.execute(select(models.Service))
+    result = await db.execute(
+        select(models.Service).options(
+            selectinload(models.Service.pool),
+            selectinload(models.Service.gslb_service)
+        )
+    )
+    return result.scalars().all()
+
+# NEW FUNCTION: get_services_by_datacenter
+async def get_services_by_datacenter(db: AsyncSession, datacenter_id: int):
+    result = await db.execute(
+        select(models.Service)
+        .options(
+            selectinload(models.Service.pool),
+            selectinload(models.Service.gslb_service)
+        )
+        .filter(models.Service.datacenter_id == datacenter_id)
+    )
     return result.scalars().all()
 
 async def create_service(db: AsyncSession, service: models.ServiceCreate):
@@ -166,7 +190,6 @@ async def create_service(db: AsyncSession, service: models.ServiceCreate):
     return db_service
 
 async def update_service(db: AsyncSession, db_service: models.Service, service_in: models.ServiceCreate):
-    # --- THIS LINE IS NOW FIXED ---
     update_data = service_in.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_service, key, value)
@@ -176,4 +199,68 @@ async def update_service(db: AsyncSession, db_service: models.Service, service_i
 
 async def delete_service(db: AsyncSession, db_service: models.Service):
     await db.delete(db_service)
+    await db.commit()
+    
+# --- Datacenter CRUD Operations ---
+
+async def get_datacenter(db: AsyncSession, datacenter_id: int):
+    result = await db.execute(select(models.Datacenter).filter(models.Datacenter.id == datacenter_id))
+    return result.scalars().first()
+
+async def get_datacenters(db: AsyncSession):
+    result = await db.execute(select(models.Datacenter))
+    return result.scalars().all()
+
+async def create_datacenter(db: AsyncSession, datacenter: models.DatacenterCreate):
+    db_datacenter = models.Datacenter(**datacenter.dict())
+    db.add(db_datacenter)
+    await db.commit()
+    await db.refresh(db_datacenter)
+    return db_datacenter
+
+async def update_datacenter(db: AsyncSession, db_datacenter: models.Datacenter, datacenter_in: models.DatacenterCreate):
+    update_data = datacenter_in.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_datacenter, key, value)
+    await db.commit()
+    await db.refresh(db_datacenter)
+    return db_datacenter
+
+async def delete_datacenter(db: AsyncSession, db_datacenter: models.Datacenter):
+    await db.delete(db_datacenter)
+    await db.commit()
+
+# --- GSLBService CRUD Operations ---
+
+async def get_gslb_service(db: AsyncSession, gslb_service_id: int):
+    result = await db.execute(
+        select(models.GSLBService)
+        .options(selectinload(models.GSLBService.services))
+        .filter(models.GSLBService.id == gslb_service_id)
+    )
+    return result.scalars().first()
+
+async def get_gslb_services(db: AsyncSession):
+    result = await db.execute(
+        select(models.GSLBService).options(selectinload(models.GSLBService.services))
+    )
+    return result.scalars().all()
+
+async def create_gslb_service(db: AsyncSession, gslb_service: models.GSLBServiceCreate):
+    db_gslb_service = models.GSLBService(**gslb_service.dict())
+    db.add(db_gslb_service)
+    await db.commit()
+    await db.refresh(db_gslb_service)
+    return db_gslb_service
+
+async def update_gslb_service(db: AsyncSession, db_gslb_service: models.GSLBService, gslb_service_in: models.GSLBServiceCreate):
+    update_data = gslb_service_in.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_gslb_service, key, value)
+    await db.commit()
+    await db.refresh(db_gslb_service)
+    return db_gslb_service
+
+async def delete_gslb_service(db: AsyncSession, db_gslb_service: models.GSLBService):
+    await db.delete(db_gslb_service)
     await db.commit()

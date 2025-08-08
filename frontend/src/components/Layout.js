@@ -16,7 +16,8 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import FavoriteIcon from '@mui/icons-material/Favorite'; // <-- Import new icon
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import PublicIcon from '@mui/icons-material/Public'; // NEW IMPORT
 
 const drawerWidth = 260;
 const API_URL = 'http://localhost:8000/api';
@@ -30,6 +31,7 @@ const menuItems = [
 ];
 
 const secondaryMenuItems = [
+    { text: 'GSLB Management', icon: <PublicIcon />, path: '/gslb' }, // NEW ITEM
     { text: 'WAF Rules', icon: <ShieldIcon />, path: '/waf' },
     { text: 'Logs', icon: <DescriptionIcon />, path: '/logs' },
     { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' },
