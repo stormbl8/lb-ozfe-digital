@@ -33,6 +33,14 @@ class Pool(Base):
     monitor = relationship("Monitor", back_populates="pools")
     services = relationship("Service", back_populates="pool")
 
+# --- NEW MODEL: WAFRuleSet ---
+class WAFRuleSet(Base):
+    __tablename__ = "waf_rulesets"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    # List of OWASP CRS rule IDs to exclude
+    excluded_rule_ids = Column(JSON, nullable=False, default=list)
+
 # --- NEW MODEL: Datacenter ---
 class Datacenter(Base):
     __tablename__ = "datacenters"
@@ -48,7 +56,7 @@ class GSLBService(Base):
     id = Column(Integer, primary_key=True, index=True)
     domain_name = Column(String, unique=True, index=True, nullable=False)
     load_balancing_algorithm = Column(String, default="round_robin")
-    datacenters = Column(JSON, nullable=False, default=list) # List of datacenter IDs
+    datacenters = Column(JSON, nullable=False, default=list)
     services = relationship("Service", back_populates="gslb_service")
     
 # --- UPDATED MODEL: Service ---
@@ -57,9 +65,8 @@ class Service(Base):
     id = Column(Integer, primary_key=True, index=True)
     service_type = Column(String, default="http")
     listen_port = Column(Integer, nullable=True)
-    domain_name = Column(String, nullable=True) # Unique constraint is removed
+    domain_name = Column(String, nullable=True)
     
-    # New columns for GSLB
     gslb_service_id = Column(Integer, ForeignKey("gslb_services.id"), nullable=True)
     datacenter_id = Column(Integer, ForeignKey("datacenters.id"), nullable=True)
     
@@ -68,6 +75,9 @@ class Service(Base):
     forward_scheme = Column(String, default="http")
     websockets_support = Column(Boolean, default=True)
     waf_enabled = Column(Boolean, default=False)
+    # NEW FIELD
+    waf_ruleset_id = Column(Integer, ForeignKey("waf_rulesets.id"), nullable=True)
+    
     session_persistence = Column(Boolean, default=False)
     certificate_name = Column(String, default="dummy")
     force_ssl = Column(Boolean, default=False)
@@ -160,6 +170,19 @@ class PoolResponse(PoolBase):
     class Config:
         from_attributes = True
         
+# --- NEW PYDANTIC MODELS FOR WAF ---
+class WAFRuleSetBase(BaseModel):
+    name: str
+    excluded_rule_ids: List[int] = Field(default_factory=list)
+
+class WAFRuleSetCreate(WAFRuleSetBase):
+    pass
+    
+class WAFRuleSetResponse(WAFRuleSetBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 # --- NEW PYDANTIC MODELS FOR DATACENTER ---
 class DatacenterBase(BaseModel):
     name: str
@@ -195,12 +218,13 @@ class ServiceBase(BaseModel):
     listen_port: Optional[int] = None
     domain_name: Optional[str] = None
     pool_id: Optional[int] = None
-    gslb_service_id: Optional[int] = None # New Field
-    datacenter_id: Optional[int] = None # New Field
+    gslb_service_id: Optional[int] = None
+    datacenter_id: Optional[int] = None
     enabled: bool = True
     forward_scheme: Literal["http", "https"] = "http"
     websockets_support: bool = True
     waf_enabled: bool = False
+    waf_ruleset_id: Optional[int] = None # NEW FIELD
     session_persistence: bool = False
     certificate_name: str = "dummy"
     force_ssl: bool = False

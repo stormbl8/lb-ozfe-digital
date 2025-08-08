@@ -17,12 +17,11 @@ router = APIRouter(
 async def list_services(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
-    datacenter_id: Optional[int] = None # NEW PARAMETER
+    datacenter_id: Optional[int] = None
 ):
     """
     Retrieve all services. Accessible by any authenticated user.
     """
-    # If datacenter_id is provided, filter by it. Otherwise, return all services.
     return await crud.get_services_by_datacenter(db, datacenter_id)
 
 @router.get("/{service_id}", response_model=models.ServiceResponse)
@@ -49,7 +48,6 @@ async def add_new_service(
     Add a new service. Admin only.
     """
     new_service = await crud.create_service(db, service_data)
-    # The datacenter_id must be provided
     if new_service.datacenter_id:
         await regenerate_configs_for_datacenter(db, new_service.datacenter_id)
     return new_service

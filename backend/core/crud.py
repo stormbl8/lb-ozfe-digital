@@ -148,6 +148,34 @@ async def delete_pool(db: AsyncSession, db_pool: models.Pool):
     await db.delete(db_pool)
     await db.commit()
 
+# --- WAFRuleSet CRUD Operations ---
+async def get_waf_ruleset(db: AsyncSession, ruleset_id: int):
+    result = await db.execute(select(models.WAFRuleSet).filter(models.WAFRuleSet.id == ruleset_id))
+    return result.scalars().first()
+
+async def get_waf_rulesets(db: AsyncSession):
+    result = await db.execute(select(models.WAFRuleSet))
+    return result.scalars().all()
+
+async def create_waf_ruleset(db: AsyncSession, ruleset: models.WAFRuleSetCreate):
+    db_ruleset = models.WAFRuleSet(**ruleset.dict())
+    db.add(db_ruleset)
+    await db.commit()
+    await db.refresh(db_ruleset)
+    return db_ruleset
+
+async def update_waf_ruleset(db: AsyncSession, db_ruleset: models.WAFRuleSet, ruleset_in: models.WAFRuleSetCreate):
+    update_data = ruleset_in.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_ruleset, key, value)
+    await db.commit()
+    await db.refresh(db_ruleset)
+    return db_ruleset
+
+async def delete_waf_ruleset(db: AsyncSession, db_ruleset: models.WAFRuleSet):
+    await db.delete(db_ruleset)
+    await db.commit()
+
 # --- Service CRUD Operations ---
 
 async def get_service(db: AsyncSession, service_id: int):
@@ -170,7 +198,6 @@ async def get_services(db: AsyncSession):
     )
     return result.scalars().all()
 
-# NEW FUNCTION: get_services_by_datacenter
 async def get_services_by_datacenter(db: AsyncSession, datacenter_id: int):
     result = await db.execute(
         select(models.Service)

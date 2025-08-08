@@ -18,6 +18,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         forward_scheme: 'http',
         websockets_support: true,
         waf_enabled: false,
+        waf_ruleset_id: '',
         certificate_name: 'dummy',
         force_ssl: true,
         http2_support: true,
@@ -35,6 +36,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
     const [pools, setPools] = useState([]);
     const [datacenters, setDatacenters] = useState([]);
     const [gslbServices, setGslbServices] = useState([]);
+    const [wafRulesets, setWafRulesets] = useState([]);
     const isEditing = !!(formData && formData.id);
 
     useEffect(() => {
@@ -51,16 +53,18 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         
         const fetchData = async () => {
             try {
-                const [certsRes, poolsRes, datacentersRes, gslbServicesRes] = await Promise.all([
+                const [certsRes, poolsRes, datacentersRes, gslbServicesRes, wafRulesetsRes] = await Promise.all([
                     axios.get(`${apiUrl}/certificates`, authHeaders),
                     axios.get(`${apiUrl}/pools`, authHeaders),
                     axios.get(`${apiUrl}/gslb/datacenters`, authHeaders),
                     axios.get(`${apiUrl}/gslb/services`, authHeaders),
+                    axios.get(`${apiUrl}/waf/rulesets`, authHeaders),
                 ]);
                 setCerts(certsRes.data);
                 setPools(poolsRes.data);
                 setDatacenters(datacentersRes.data);
                 setGslbServices(gslbServicesRes.data);
+                setWafRulesets(wafRulesetsRes.data);
             } catch (error) {
                 toast.error('Failed to fetch required data.');
                 console.error(error);
@@ -79,8 +83,9 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         const toastId = toast.loading('Saving...');
         const payload = {
             ...formData,
-            pool_id: parseInt(formData.pool_id, 10),
+            pool_id: formData.pool_id ? parseInt(formData.pool_id, 10) : null,
             gslb_service_id: formData.gslb_service_id ? parseInt(formData.gslb_service_id, 10) : null,
+            waf_ruleset_id: formData.waf_ruleset_id ? parseInt(formData.waf_ruleset_id, 10) : null,
             datacenter_id: formData.datacenter_id ? parseInt(formData.datacenter_id, 10) : null,
             listen_port: formData.listen_port ? parseInt(formData.listen_port, 10) : null,
             access_list_ips: Array.isArray(formData.access_list_ips) ? formData.access_list_ips.filter(ip => ip.trim() !== '') : [],
@@ -162,7 +167,22 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                         </FormControl>
                     </Grid>
                     
-                    <Grid item xs={12}><FormGroup row><FormControlLabel control={<Checkbox checked={formData.websockets_support} onChange={handleChange} name="websockets_support" />} label="Websockets Support" /><FormControlLabel control={<Checkbox checked={formData.waf_enabled} onChange={handleChange} name="waf_enabled" />} label="Block Common Exploits (WAF)" /></FormGroup></Grid>
+                    <Grid item xs={12}>
+                        <FormGroup row>
+                            <FormControlLabel control={<Checkbox checked={formData.websockets_support} onChange={handleChange} name="websockets_support" />} label="Websockets Support" />
+                            <FormControlLabel control={<Checkbox checked={formData.waf_enabled} onChange={handleChange} name="waf_enabled" />} label="Enable WAF" />
+                        </FormGroup>
+                    </Grid>
+                    <Grid item xs={12}>
+                        <FormControl fullWidth disabled={!formData.waf_enabled}>
+                            <InputLabel>WAF Ruleset</InputLabel>
+                            <Select name="waf_ruleset_id" value={formData.waf_ruleset_id || ''} onChange={handleChange} label="WAF Ruleset">
+                                <MenuItem value=""><em>Default Ruleset</em></MenuItem>
+                                {wafRulesets.map(ruleset => <MenuItem key={ruleset.id} value={ruleset.id}>{ruleset.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+                    
 
                     {/* SSL Section */}
                     <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">SSL</Typography></Grid>

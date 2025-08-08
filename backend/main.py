@@ -3,12 +3,12 @@ import os
 import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors
+
+from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx, waf
 from core.health_checker import health_check_task
 from core.database import engine, Base
 from core import crud
 from core.database import AsyncSessionLocal
-from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx
 
 app = FastAPI(
     title="Load Balancer UI Backend",
@@ -57,7 +57,8 @@ app.include_router(pools.router)
 app.include_router(auth.router)
 app.include_router(monitors.router)
 app.include_router(gslb.router)
-app.include_router(nginx.router) 
+app.include_router(nginx.router)
+app.include_router(waf.router) # NEW LINE
 
 @app.get("/")
 def read_root():
