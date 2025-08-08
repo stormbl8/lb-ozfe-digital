@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = "/data/nginx_proxy_configs"
 STREAM_CONFIG_DIR = "/data/nginx_stream_configs"
 HTPASSWD_DIR = "/data/htpasswd"
-LETSENCRYPT_DIR_BACKEND_CONTAINER = "/data/certs/letsencrypt/live"
-CLOUDFLARE_CREDS_PATH_BACKEND_CONTAINER = "/data/certs/letsencrypt/credentials/cloudflare.ini"
 
 def render_http_config(service: Service, pool: Pool) -> str:
     template_loader = jinja2.FileSystemLoader(searchpath="./templates")
@@ -30,10 +28,7 @@ def render_stream_config(service: Service, pool: Pool) -> str:
     return template.render(service=service, pool=pool)
 
 def reload_nginx():
-    """
-    Attempts to test and reload NGINX configuration.
-    Raises HTTPException on failure.
-    """
+    """Attempts to test and reload NGINX configuration."""
     logger.info("Running 'nginx -t' to test configuration...")
     try:
         client = docker.from_env()
@@ -52,68 +47,60 @@ def reload_nginx():
             raise HTTPException(status_code=500, detail=f"NGINX reload failed: {error_message}")
         
         logger.info("NGINX reloaded successfully.")
-        return {"message": "NGINX reloaded successfully."}
     except docker.errors.NotFound:
-        logger.error("NGINX container 'nginx-proxy' not found. Is it running?")
-        raise HTTPException(status_code=500, detail="NGINX container not found. Is 'nginx-proxy' running?")
+        logger.error("NGINX container 'nginx-proxy' not found.")
+        raise HTTPException(status_code=500, detail="NGINX container not found.")
     except Exception as e:
         logger.error(f"Error during NGINX reload operation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reload NGINX: {e}")
 
 async def regenerate_all_nginx_configs(db: AsyncSession):
+    """Regenerates all NGINX configurations and reloads NGINX."""
     logger.info("Regenerating all NGINX configurations.")
     services = await crud.get_services(db)
     pools = await crud.get_pools(db)
     pools_by_id = {pool.id: pool for pool in pools}
 
-    # Ensure config directories exist
     os.makedirs(CONFIG_DIR, exist_ok=True)
     os.makedirs(STREAM_CONFIG_DIR, exist_ok=True)
     os.makedirs(HTPASSWD_DIR, exist_ok=True)
 
-    # Clear old config files to prevent loading stale configurations
+    # Clear old config files
     for dir_path in [CONFIG_DIR, STREAM_CONFIG_DIR]:
         for f in os.listdir(dir_path):
-            file_path = os.path.join(dir_path, f)
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-                logger.info(f"Removed old config file: {file_path}")
+            os.remove(os.path.join(dir_path, f))
 
     for service in services:
         if not service.enabled:
-            logger.info(f"Service {service.id} ('{service.domain_name}') is disabled. Skipping config generation.")
             continue
-
         pool = pools_by_id.get(service.pool_id)
         if not pool or not pool.backend_servers:
-            logger.warning(f"Service {service.id} ('{service.domain_name}') enabled but its pool '{pool.name if pool else 'N/A'}' has no backend servers. Skipping config generation for this service.")
             continue
 
-        # Generate config for HTTP services
-        if service.service_type == "http":
-            config_content = render_http_config(service, pool)
-            config_filename = f"{service.id}-{service.domain_name}.conf"
-            config_path = os.path.join(CONFIG_DIR, config_filename)
-        # Generate config for stream services
-        else: # tcp or udp
-            config_content = render_stream_config(service, pool)
-            config_filename = f"{service.id}-stream.conf"
-            config_path = os.path.join(STREAM_CONFIG_DIR, config_filename)
-        
         try:
-            with open(config_path, "w") as f:
-                f.write(config_content)
-            logger.info(f"Generated NGINX config for service {service.id}: {config_filename}")
+            # --- THIS IS THE FIX ---
+            if service.service_type == "http":
+                config_content = render_http_config(service, pool)
+                config_path = os.path.join(CONFIG_DIR, f"{service.id}-{service.domain_name}.conf")
+                with open(config_path, "w") as f:
+                    f.write(config_content)
+                
+                # Handle Basic Auth htpasswd file ONLY for HTTP services
+                htpasswd_path = os.path.join(HTPASSWD_DIR, f"service_{service.id}")
+                if service.basic_auth_user and service.basic_auth_pass:
+                    htpasswd = HtpasswdFile(htpasswd_path, new=True)
+                    htpasswd.set_password(service.basic_auth_user, service.basic_auth_pass)
+                    htpasswd.save()
+                elif os.path.exists(htpasswd_path):
+                    os.remove(htpasswd_path)
 
-            # Handle Basic Auth htpasswd file
-            if service.basic_auth_user and service.basic_auth_pass:
-                htpasswd = HtpasswdFile(os.path.join(HTPASSWD_DIR, f"service_{service.id}"), new=True)
-                htpasswd.set_password(service.basic_auth_user, service.basic_auth_pass)
-                htpasswd.save()
-                logger.info(f"Generated htpasswd file for service {service.id}")
-            elif os.path.exists(os.path.join(HTPASSWD_DIR, f"service_{service.id}")):
-                os.remove(os.path.join(HTPASSWD_DIR, f"service_{service.id}"))
+            else:  # tcp or udp
+                config_content = render_stream_config(service, pool)
+                config_path = os.path.join(STREAM_CONFIG_DIR, f"{service.id}-stream.conf")
+                with open(config_path, "w") as f:
+                    f.write(config_content)
+                    
         except Exception as e:
-            logger.error(f"Failed to write NGINX config file {config_path}: {e}")
-            
+            logger.error(f"Failed to write config for service {service.id}: {e}")
+
     reload_nginx()

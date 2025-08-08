@@ -1,8 +1,9 @@
 # Managed by Load Balancer UI for: {{ service.service_type | upper }} Stream on port {{ service.listen_port }}
 
 upstream stream_pool_{{ service.id }} {
-    # Loop through the backend servers and add them to the pool
-    {% for server in service.backend_servers %}
+    # --- THIS IS THE FIX ---
+    # Loop over the pool's backend servers, not the service's.
+    {% for server in pool.backend_servers %}
     server {{ server.host }}:{{ server.port }};
     {% endfor %}
 }

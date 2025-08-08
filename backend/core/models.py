@@ -35,6 +35,9 @@ class Service(Base):
     hsts_enabled = Column(Boolean, default=False)
     hsts_subdomains = Column(Boolean, default=False)
     advanced_config = Column(Text, nullable=True)
+    # --- THIS IS THE FIX ---
+    basic_auth_user = Column(String, nullable=True)
+    basic_auth_pass = Column(String, nullable=True)
     pool = relationship("Pool", back_populates="services")
 
 class User(Base):
@@ -50,35 +53,29 @@ class User(Base):
 
 # --- Pydantic Models (For API Validation & Responses) ---
 
-# Base model for user attributes
+# ... (rest of the file is the same)
 class UserBase(BaseModel):
     username: str = Field(..., min_length=1, description="Username cannot be empty.")
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
 
-# Model used when creating a user (includes password)
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters.")
 
-# Model for updating a user
 class UserUpdate(UserBase):
     password: Optional[str] = Field(None, min_length=6, description="Password must be at least 6 characters.")
     role: Literal["admin", "read-only"]
 
-# Model used by admins to create a user (includes role)
 class AdminUserCreate(UserCreate):
     role: Literal["admin", "read-only"] = "read-only"
 
-# A Pydantic model representing the user as it is in the database
 class UserInDB(UserBase):
     id: int
     role: str
-    hashed_password: str
     class Config:
         from_attributes = True
 
-# Model for API responses (never includes password)
 class UserResponse(UserBase):
     id: int
     role: str
@@ -95,7 +92,7 @@ class BackendServer(BaseModel):
 class PoolBase(BaseModel):
     name: str
     backend_servers: List[BackendServer]
-    load_balancing_algorithm: str
+    load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash"]
 
 class PoolCreate(PoolBase):
     pass
@@ -119,6 +116,9 @@ class ServiceBase(BaseModel):
     http2_support: bool = False
     hsts_enabled: bool = False
     hsts_subdomains: bool = False
+    # --- THIS IS THE FIX ---
+    basic_auth_user: Optional[str] = None
+    basic_auth_pass: Optional[str] = None
     advanced_config: Optional[str] = None
 
 class ServiceCreate(ServiceBase):

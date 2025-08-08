@@ -52,10 +52,12 @@ server {
         auth_basic_user_file /data/htpasswd/service_{{ service.id }};
     {% endif %}
 
+    # --- THIS IS THE FIX ---
+    # Corrected SSL paths to point to the shared /data volume
     # SSL Configuration
     {% if service.certificate_name and service.certificate_name != 'dummy' %}
-    ssl_certificate /etc/letsencrypt/live/{{ service.certificate_name }}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{{ service.certificate_name }}/privkey.pem;
+    ssl_certificate /data/certs/letsencrypt/live/{{ service.certificate_name }}/fullchain.pem;
+    ssl_certificate_key /data/certs/letsencrypt/live/{{ service.certificate_name }}/privkey.pem;
     {% else %}
     ssl_certificate /data/certs/dummy/dummy.crt;
     ssl_certificate_key /data/certs/dummy/dummy.key;
