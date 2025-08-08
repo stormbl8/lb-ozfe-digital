@@ -9,7 +9,7 @@ from core.health_checker import health_check_task
 from core.database import engine, Base
 from core import crud
 from core.database import AsyncSessionLocal
-from core.cert_manager import cert_renewal_task # NEW IMPORT
+from core.cert_manager import cert_renewal_task, cert_sync_task # NEW IMPORT
 
 app = FastAPI(
     title="Load Balancer UI Backend",
@@ -27,7 +27,8 @@ async def startup_event():
 
     # Run background tasks
     asyncio.create_task(health_check_task())
-    asyncio.create_task(cert_renewal_task()) # NEW TASK
+    asyncio.create_task(cert_renewal_task())
+    asyncio.create_task(cert_sync_task()) # NEW TASK
 
     # Securely create the first admin user
     admin_user = os.getenv("ADMIN_USER", "admin")

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Typography, Button, TextField, CircularProgress, Alert, Checkbox, FormControlLabel
+    Typography, Button, TextField, CircularProgress, Alert, Checkbox, FormControlLabel,
+    Grid
 } from '@mui/material';
 import toast from 'react-hot-toast';
 
@@ -13,8 +14,6 @@ const Certs = () => {
   const [loading, setLoading] = useState(true);
   const [domainToIssue, setDomainToIssue] = useState('');
   const [useStaging, setUseStaging] = useState(true);
-  const [message, setMessage] = useState('');
-  const [isError, setIsError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchCerts = async () => {
@@ -43,8 +42,6 @@ const Certs = () => {
   const handleIssue = async (e) => {
     e.preventDefault();
     const toastId = toast.loading(`Starting issuance for ${domainToIssue}...`);
-    setMessage('');
-    setIsError(false);
 
     try {
         const token = localStorage.getItem('access_token');
@@ -59,8 +56,6 @@ const Certs = () => {
     } catch (error) {
         const errorMessage = error.response?.data?.detail || error.message;
         toast.error(`Error: ${errorMessage}`, { id: toastId });
-        setMessage(errorMessage);
-        setIsError(true);
     }
   };
 
@@ -73,35 +68,45 @@ const Certs = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>SSL/TLS Certificates</Typography>
-      <p>
+      <Typography variant="body1" sx={{ mb: 3 }}>
         Manage Let's Encrypt certificates for your services. Certificates that are 
         less than 30 days from expiry will be automatically renewed by a background task.
-      </p>
+      </Typography>
       
       {isAdmin && (
         <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>Issue New Certificate</Typography>
-            <p>To issue a wildcard certificate, enter the domain as <code>*.yourdomain.com</code>.</p>
-            <Box component="form" onSubmit={handleIssue} sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TextField
-                    size="small"
-                    label="Domain Name"
-                    value={domainToIssue}
-                    onChange={(e) => setDomainToIssue(e.target.value)}
-                    placeholder="e.g., myapp.com or *.myapp.com"
-                    required
-                    fullWidth
-                />
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={useStaging}
-                            onChange={(e) => setUseStaging(e.target.checked)}
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              To issue a wildcard certificate, enter the domain as <code>*.yourdomain.com</code>.
+            </Typography>
+            <Box component="form" onSubmit={handleIssue}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} md={6}>
+                        <TextField
+                            size="small"
+                            label="Domain Name"
+                            value={domainToIssue}
+                            onChange={(e) => setDomainToIssue(e.target.value)}
+                            placeholder="e.g., myapp.com or *.myapp.com"
+                            required
+                            fullWidth
                         />
-                    }
-                    label="Use Staging Environment"
-                />
-                <Button type="submit" variant="contained" disabled={!domainToIssue}>Issue Certificate</Button>
+                    </Grid>
+                    <Grid item>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={useStaging}
+                                    onChange={(e) => setUseStaging(e.target.checked)}
+                                />
+                            }
+                            label="Use Staging Environment"
+                        />
+                    </Grid>
+                    <Grid item>
+                        <Button type="submit" variant="contained" disabled={!domainToIssue}>Issue Certificate</Button>
+                    </Grid>
+                </Grid>
             </Box>
         </Paper>
       )}
@@ -125,7 +130,7 @@ const Certs = () => {
                             <TableRow key={cert.name}>
                                 <TableCell>{cert.name}</TableCell>
                                 <TableCell>{new Date(cert.expiration_date).toLocaleDateString()}</TableCell>
-                                <TableCell color={getExpirationColor(cert.days_to_expiration)}>
+                                <TableCell>
                                     <Typography color={getExpirationColor(cert.days_to_expiration)}>
                                         {cert.days_to_expiration} days
                                     </Typography>

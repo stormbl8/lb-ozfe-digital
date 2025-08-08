@@ -1,14 +1,16 @@
 import os
 import subprocess
 import logging
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, File, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from OpenSSL import crypto
 from datetime import datetime, timedelta, timezone
 
 from core.security import get_current_admin_user
-from core import models # NEW IMPORT
+from core import models
+from core.cert_manager import get_cert_info, run_certbot_issue
 
 class IssueRequest(BaseModel):
     domain: str
@@ -29,56 +31,6 @@ router = APIRouter(
     prefix="/api/certificates",
     tags=["Certificates"]
 )
-
-def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool):
-    logger.info(f"Starting certificate issuance for {domain} (Staging: {use_staging})")
-    creds_content = (f"dns_cloudflare_email = {email}\n" f"dns_cloudflare_api_key = {api_key}")
-    try:
-        with open(CLOUDFLARE_CREDS_PATH, "w") as f:
-            f.write(creds_content)
-        os.chmod(CLOUDFLARE_CREDS_PATH, 0o600)
-    except Exception as e:
-        logger.error(f"Failed to write Cloudflare credentials: {e}")
-        return
-
-    command = [
-        "certbot", "certonly", "--dns-cloudflare", "--dns-cloudflare-credentials", CLOUDFLARE_CREDS_PATH,
-        "--non-interactive", "--agree-tos", "--email", email, "-d", domain,
-        "--config-dir", LETSENCRYPT_BASE_DIR, "--work-dir", "/data/certs/work", "--logs-dir", "/data/certs/logs"
-    ]
-    if use_staging:
-        command.append("--staging")
-    
-    try:
-        process = subprocess.run(command, capture_output=True, text=True, check=False)
-        if process.returncode == 0:
-            logger.info(f"Certbot succeeded for {domain}. Stdout: {process.stdout}")
-            chmod_command = ["chmod", "-R", "a+rX", LETSENCRYPT_BASE_DIR]
-            subprocess.run(chmod_command, check=True)
-            logger.info("Successfully updated certificate file permissions.")
-        else:
-            logger.error(f"Certbot failed for {domain}. Stderr: {process.stderr}")
-    except Exception as e:
-        logger.error(f"An exception occurred while running certbot: {e}")
-    finally:
-        if os.path.exists(CLOUDFLARE_CREDS_PATH):
-            os.remove(CLOUDFLARE_CREDS_PATH)
-            logger.info("Cleaned up Cloudflare credentials file.")
-
-def get_cert_info(cert_path: str) -> Dict[str, Any]:
-    """Helper function to parse a certificate file and get its expiration date."""
-    with open(cert_path, 'r') as f:
-        cert_data = f.read()
-    cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_data)
-    expiration_date_bytes = cert.get_notAfter()
-    expiration_date = datetime.strptime(expiration_date_bytes.decode('ascii'), '%Y%m%d%H%M%SZ').replace(tzinfo=timezone.utc)
-    days_to_expiration = (expiration_date - datetime.now(timezone.utc)).days
-    is_expiring = days_to_expiration < 30
-    return {
-        "expiration_date": expiration_date,
-        "days_to_expiration": days_to_expiration,
-        "is_expiring": is_expiring
-    }
 
 @router.post("/issue")
 async def issue_certificate(req: IssueRequest, background_tasks: BackgroundTasks, admin_user: models.User = Depends(get_current_admin_user)):
@@ -120,3 +72,55 @@ async def list_certificates(admin_user: models.User = Depends(get_current_admin_
     except Exception as e:
         logger.error(f"Error while listing/validating certificates: {e}")
         return []
+
+@router.get("/{cert_name}/download")
+async def download_certificate(cert_name: str, admin_user: models.User = Depends(get_current_admin_user)):
+    """
+    Allows remote backends to download a certificate's key and fullchain.
+    """
+    cert_dir = os.path.join(LETSENCRYPT_DIR, cert_name)
+    if not os.path.isdir(cert_dir):
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    
+    try:
+        import zipfile
+        from io import BytesIO
+        
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            fullchain_path = os.path.join(cert_dir, "fullchain.pem")
+            privkey_path = os.path.join(cert_dir, "privkey.pem")
+            
+            if os.path.exists(fullchain_path):
+                zf.write(fullchain_path, os.path.basename(fullchain_path))
+            if os.path.exists(privkey_path):
+                zf.write(privkey_path, os.path.basename(privkey_path))
+        
+        zip_buffer.seek(0)
+        return StreamingResponse(zip_buffer, media_type="application/zip", headers={"Content-Disposition": f"attachment;filename={cert_name}.zip"})
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/upload")
+async def upload_certificate(file: UploadFile, admin_user: models.User = Depends(get_current_admin_user)):
+    """
+    Allows remote backends to upload a certificate for centralized storage.
+    This would typically be called by a regional backend after a successful renewal.
+    """
+    try:
+        import zipfile
+        from io import BytesIO
+        
+        cert_name = file.filename.replace(".zip", "")
+        cert_dir = os.path.join(LETSENCRYPT_DIR, cert_name)
+        os.makedirs(cert_dir, exist_ok=True)
+        
+        file_content = await file.read()
+        
+        with zipfile.ZipFile(BytesIO(file_content)) as zf:
+            zf.extractall(cert_dir)
+            
+        return {"message": f"Certificate files for {cert_name} uploaded successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload certificate: {e}")
