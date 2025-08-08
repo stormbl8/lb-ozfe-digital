@@ -6,6 +6,7 @@ import axios from 'axios';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
+import ServiceDetail from './pages/ServiceDetail';
 import Pools from './pages/Pools';
 import Monitors from './pages/Monitors';
 import Certs from './pages/Certs';
@@ -75,6 +76,7 @@ function App() {
           <Route path="/licenses" element={<Layout><Licenses /></Layout>} />
           <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute><Layout><Services /></Layout></ProtectedRoute>} />
+          <Route path="/services/:serviceId" element={<ProtectedRoute><Layout><ServiceDetail /></Layout></ProtectedRoute>} />
           <Route path="/pools" element={<ProtectedRoute><Layout><Pools /></Layout></ProtectedRoute>} />
           <Route path="/monitors" element={<ProtectedRoute><Layout><Monitors /></Layout></ProtectedRoute>} />
           <Route path="/certs" element={<ProtectedRoute><Layout><Certs /></Layout></ProtectedRoute>} />

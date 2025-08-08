@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { Link as RouterLink } from 'react-router-dom';
 import {
     Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Typography, Button, IconButton, Switch, Tooltip, CircularProgress, Alert
+    Typography, Button, IconButton, Switch, Tooltip, CircularProgress, Alert, Link
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import NewProxyForm from '../components/NewProxyForm';
 import Modal from '../components/Modal';
 
@@ -142,7 +144,7 @@ const Services = () => {
                 <TableCell sx={{width: '1%'}}>Enabled</TableCell>
                 <TableCell>Source</TableCell>
                 <TableCell>Assigned Pool</TableCell>
-                <TableCell>SSL</TableCell>
+                <TableCell>Extras</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -168,7 +170,7 @@ const Services = () => {
                         </TableCell>
                         <TableCell>
                             {service.service_type === 'http' 
-                             ? <Typography variant="body2" sx={{ fontWeight: '500' }}>{service.domain_name}</Typography>
+                             ? <Link component={RouterLink} to={`/services/${service.id}`} sx={{ fontWeight: '500' }}>{service.domain_name}</Link>
                              : <Typography variant="body2" color="textSecondary">{`${service.service_type.toUpperCase()} on Port ${service.listen_port}`}</Typography>
                             }
                         </TableCell>
@@ -176,10 +178,19 @@ const Services = () => {
                             {pool ? pool.name : 'Not Assigned'}
                         </TableCell>
                         <TableCell>
-                            {service.service_type === 'http' 
-                             ? (service.certificate_name === 'dummy' ? 'Self-Signed' : 'Let\'s Encrypt')
-                             : 'N/A'
-                            }
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {service.session_persistence && (
+                                    <Tooltip title="Session Persistence Enabled">
+                                        <StickyNote2Icon fontSize="small" color="action" />
+                                    </Tooltip>
+                                )}
+                                <Typography variant="body2">
+                                    {service.service_type === 'http' 
+                                     ? (service.certificate_name === 'dummy' ? 'Self-Signed' : 'Let\'s Encrypt')
+                                     : 'N/A'
+                                    }
+                                </Typography>
+                            </Box>
                         </TableCell>
                         <TableCell>
                             <HealthStatusIndicator service={service} pool={pool} healthStatus={healthStatus} />
