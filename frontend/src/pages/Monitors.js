@@ -6,79 +6,69 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import PoolForm from '../components/PoolForm';
+import MonitorForm from '../components/MonitorForm';
 import Modal from '../components/Modal';
 
 const API_URL = 'http://localhost:8000/api';
 
-const Pools = () => {
-    const [pools, setPools] = useState([]);
-    const [monitors, setMonitors] = useState([]); // <-- Add state for monitors
+const Monitors = () => {
+    const [monitors, setMonitors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [editingPool, setEditingPool] = useState(null);
+    const [editingMonitor, setEditingMonitor] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
 
-    const fetchPools = useCallback(async () => {
+    const fetchMonitors = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('access_token');
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
 
-            const [poolsRes, userRes, monitorsRes] = await Promise.all([ // <-- Fetch monitors as well
-                axios.get(`${API_URL}/pools`, authHeaders),
-                axios.get(`${API_URL}/auth/users/me`, authHeaders),
-                axios.get(`${API_URL}/monitors`, authHeaders)
+            const [monitorsRes, userRes] = await Promise.all([
+                axios.get(`${API_URL}/monitors`, authHeaders),
+                axios.get(`${API_URL}/auth/users/me`, authHeaders)
             ]);
 
-            setPools(poolsRes.data);
+            setMonitors(monitorsRes.data);
             setIsAdmin(userRes.data.role === 'admin');
-            setMonitors(monitorsRes.data); // <-- Set monitors state
             setError('');
         } catch (err) {
-            setError('Failed to fetch server pools.');
+            setError('Failed to fetch health monitors.');
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchPools();
-    }, [fetchPools]);
+        fetchMonitors();
+    }, [fetchMonitors]);
 
     const handleCloseForm = () => {
-        setEditingPool(null);
-        fetchPools();
+        setEditingMonitor(null);
+        fetchMonitors();
     };
 
-    const handleDelete = async (poolId, poolName) => {
-        if (window.confirm(`Are you sure you want to delete the pool "${poolName}"?`)) {
+    const handleDelete = async (monitorId, monitorName) => {
+        if (window.confirm(`Are you sure you want to delete the monitor "${monitorName}"?`)) {
             try {
                 const token = localStorage.getItem('access_token');
-                await axios.delete(`${API_URL}/pools/${poolId}`, {
+                await axios.delete(`${API_URL}/monitors/${monitorId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                fetchPools();
+                fetchMonitors();
             } catch (err) {
-                setError(`Failed to delete ${poolName}: ${err.response?.data?.detail || err.message}`);
+                setError(`Failed to delete ${monitorName}: ${err.response?.data?.detail || err.message}`);
             }
         }
     };
 
-    // --- NEW HELPER FUNCTION ---
-    const getMonitorNameById = (monitorId) => {
-        if (!monitorId) return 'Default';
-        const monitor = monitors.find(m => m.id === monitorId);
-        return monitor ? monitor.name : 'Unknown';
-    };
-
     return (
         <Box>
-            <Typography variant="h4" gutterBottom>Server Pools</Typography>
-            <Modal isOpen={!!editingPool} onClose={handleCloseForm}>
-                <PoolForm
-                    key={editingPool ? editingPool.id : 'new'}
-                    editingPool={editingPool}
+            <Typography variant="h4" gutterBottom>Health Monitors</Typography>
+            <Modal isOpen={!!editingMonitor} onClose={handleCloseForm}>
+                <MonitorForm
+                    key={editingMonitor ? editingMonitor.id : 'new'}
+                    editingMonitor={editingMonitor}
                     onFinished={handleCloseForm}
                     apiUrl={API_URL}
                 />
@@ -86,7 +76,7 @@ const Pools = () => {
             <Paper>
                 {isAdmin && (
                     <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button variant="contained" onClick={() => setEditingPool({})}>Add Server Pool</Button>
+                        <Button variant="contained" onClick={() => setEditingMonitor({})}>Add Monitor</Button>
                     </Box>
                 )}
                 {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
@@ -95,33 +85,35 @@ const Pools = () => {
                         <TableHead>
                             <TableRow>
                                 <TableCell>Name</TableCell>
-                                <TableCell>Algorithm</TableCell>
-                                <TableCell>Health Monitor</TableCell> {/* <-- ADD THIS COLUMN */}
-                                <TableCell>Servers</TableCell>
+                                <TableCell>Type</TableCell>
+                                <TableCell>Interval / Timeout</TableCell>
+                                <TableCell>Details</TableCell>
                                 <TableCell align="right">Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
                                 <TableRow><TableCell colSpan={5} align="center"><CircularProgress /></TableCell></TableRow>
-                            ) : pools.length > 0 ? (
-                                pools.map((pool) => (
-                                    <TableRow key={pool.id} hover>
-                                        <TableCell>{pool.name}</TableCell>
-                                        <TableCell>{pool.load_balancing_algorithm}</TableCell>
-                                        <TableCell>{getMonitorNameById(pool.monitor_id)}</TableCell> {/* <-- ADD THIS CELL */}
-                                        <TableCell>{pool.backend_servers.length}</TableCell>
+                            ) : monitors.length > 0 ? (
+                                monitors.map((monitor) => (
+                                    <TableRow key={monitor.id} hover>
+                                        <TableCell>{monitor.name}</TableCell>
+                                        <TableCell>{monitor.type.toUpperCase()}</TableCell>
+                                        <TableCell>{monitor.interval}s / {monitor.timeout}s</TableCell>
+                                        <TableCell>
+                                            {monitor.type === 'http' ? `${monitor.http_method} ${monitor.path} → ${monitor.expected_status}` : 'TCP Connect'}
+                                        </TableCell>
                                         <TableCell align="right">
                                             <Tooltip title="Edit">
                                                 <span>
-                                                    <IconButton onClick={() => setEditingPool(pool)} disabled={!isAdmin}>
+                                                    <IconButton onClick={() => setEditingMonitor(monitor)} disabled={!isAdmin}>
                                                         <EditIcon />
                                                     </IconButton>
                                                 </span>
                                             </Tooltip>
                                             <Tooltip title="Delete">
                                                 <span>
-                                                    <IconButton onClick={() => handleDelete(pool.id, pool.name)} disabled={!isAdmin}>
+                                                    <IconButton onClick={() => handleDelete(monitor.id, monitor.name)} disabled={!isAdmin}>
                                                         <DeleteIcon color="error" />
                                                     </IconButton>
                                                 </span>
@@ -130,7 +122,7 @@ const Pools = () => {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={5} align="center">No server pools created yet.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={5} align="center">No health monitors created yet.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -140,4 +132,4 @@ const Pools = () => {
     );
 };
 
-export default Pools;
+export default Monitors;

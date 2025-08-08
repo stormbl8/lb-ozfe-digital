@@ -13,9 +13,11 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
         name: '',
         backend_servers: [{ host: '', port: 80, max_fails: 3, fail_timeout: '10s' }],
         load_balancing_algorithm: 'round_robin',
+        monitor_id: '', // <-- Add default value
     };
 
     const [formData, setFormData] = useState(blankPool);
+    const [monitors, setMonitors] = useState([]); // <-- Add state for monitors
     const isEditing = !!(formData && formData.id);
 
     useEffect(() => {
@@ -25,6 +27,15 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
             setFormData(blankPool);
         }
     }, [editingPool]);
+
+    // --- NEW useEffect to fetch monitors ---
+    useEffect(() => {
+        const token = localStorage.getItem('access_token');
+        const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+        axios.get(`${apiUrl}/monitors`, authHeaders)
+            .then(res => setMonitors(res.data))
+            .catch(err => console.error("Failed to fetch monitors", err));
+    }, [apiUrl]);
 
     const handleChange = (e) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -53,10 +64,10 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
         const toastId = toast.loading('Saving pool...');
         const payload = {
             ...formData,
+            monitor_id: formData.monitor_id ? parseInt(formData.monitor_id, 10) : null,
             backend_servers: formData.backend_servers.filter(s => s.host && s.port),
         };
         
-        // Get the token and create auth headers
         const token = localStorage.getItem('access_token');
         const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
 
@@ -78,7 +89,7 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
         <Box component="form" onSubmit={handleSubmit} noValidate>
             <Typography variant="h5" gutterBottom>{isEditing ? `Editing Pool "${formData.name}"` : 'Add New Server Pool'}</Typography>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12}>
                     <TextField fullWidth label="Pool Name" name="name" value={formData.name} onChange={handleChange} required />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -91,6 +102,19 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
                         </Select>
                     </FormControl>
                 </Grid>
+                {/* --- ADD THIS DROPDOWN --- */}
+                <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                        <InputLabel>Health Monitor</InputLabel>
+                        <Select name="monitor_id" value={formData.monitor_id || ''} onChange={handleChange} label="Health Monitor">
+                            <MenuItem value=""><em>None (Basic Check)</em></MenuItem>
+                            {monitors.map(monitor => (
+                                <MenuItem key={monitor.id} value={monitor.id}>{monitor.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Grid>
+
                 <Grid item xs={12}>
                     <Typography variant="subtitle2">Backend Servers</Typography>
                 </Grid>

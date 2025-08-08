@@ -1,9 +1,10 @@
 import asyncio
 import os
+import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import services, logs, settings, dashboard, certificates, health, pools, auth
+from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors
 from core.health_checker import health_check_task
 from core.database import engine, Base
 from core import crud
@@ -17,7 +18,9 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    # Create database tables
+    # The migration logic is now correctly handled in start.sh
+    
+    # This is still needed to create tables the very first time.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -52,6 +55,7 @@ app.include_router(certificates.router)
 app.include_router(health.router)
 app.include_router(pools.router)
 app.include_router(auth.router)
+app.include_router(monitors.router)
 
 @app.get("/")
 def read_root():

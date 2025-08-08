@@ -16,6 +16,7 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import FavoriteIcon from '@mui/icons-material/Favorite'; // <-- Import new icon
 
 const drawerWidth = 260;
 const API_URL = 'http://localhost:8000/api';
@@ -25,6 +26,7 @@ const menuItems = [
     { text: 'Proxy Hosts', icon: <DnsIcon />, path: '/services' },
     { text: 'Server Pools', icon: <GroupWorkIcon />, path: '/pools' },
     { text: 'SSL Certificates', icon: <SecurityIcon />, path: '/certs' },
+    { text: 'Health Monitors', icon: <FavoriteIcon />, path: '/monitors' },
 ];
 
 const secondaryMenuItems = [

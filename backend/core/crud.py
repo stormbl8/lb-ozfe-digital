@@ -31,10 +31,6 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100):
     return result.scalars().all()
 
 async def create_user(db: AsyncSession, user: models.AdminUserCreate):
-    """
-    Creates a user in the database. Expects AdminUserCreate model
-    which includes username, password, and role.
-    """
     hashed_password = security.get_password_hash(user.password)
     db_user = models.User(
         username=user.username,
@@ -67,28 +63,52 @@ async def delete_user(db: AsyncSession, db_user: models.User):
     await db.commit()
 
 async def create_first_user(db: AsyncSession, admin_user: str, admin_email: str, admin_pass: str):
-    """
-    Creates the first admin user using the correct AdminUserCreate model.
-    """
     users = await get_users(db)
     if not users:
         logger.info("No users found. Creating default admin user...")
-        # Use the AdminUserCreate model which includes the 'role' field.
         admin_data = models.AdminUserCreate(
             username=admin_user,
             email=admin_email,
             password=admin_pass,
-            role="admin"  # Explicitly set the role
+            role="admin"
         )
         await create_user(db, admin_data)
         logger.info(f"Default admin user '{admin_user}' created.")
     else:
         logger.info("Users already exist. Skipping default user creation.")
 
+# --- Monitor CRUD Operations ---
+
+async def get_monitor(db: AsyncSession, monitor_id: int):
+    result = await db.execute(select(models.Monitor).filter(models.Monitor.id == monitor_id))
+    return result.scalars().first()
+
+async def get_monitors(db: AsyncSession):
+    result = await db.execute(select(models.Monitor))
+    return result.scalars().all()
+
+async def create_monitor(db: AsyncSession, monitor: models.MonitorCreate):
+    db_monitor = models.Monitor(**monitor.dict())
+    db.add(db_monitor)
+    await db.commit()
+    await db.refresh(db_monitor)
+    return db_monitor
+
+async def update_monitor(db: AsyncSession, db_monitor: models.Monitor, monitor_in: models.MonitorCreate):
+    update_data = monitor_in.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_monitor, key, value)
+    await db.commit()
+    await db.refresh(db_monitor)
+    return db_monitor
+
+async def delete_monitor(db: AsyncSession, db_monitor: models.Monitor):
+    await db.delete(db_monitor)
+    await db.commit()
+
 # --- Pool CRUD Operations ---
 
 async def get_pool(db: AsyncSession, pool_id: int):
-    # Eagerly load the 'services' relationship to prevent lazy-loading errors.
     result = await db.execute(
         select(models.Pool).options(selectinload(models.Pool.services)).filter(models.Pool.id == pool_id)
     )
@@ -107,7 +127,8 @@ async def create_pool(db: AsyncSession, pool: models.PoolCreate):
     db_pool = models.Pool(
         name=pool.name,
         backend_servers=backend_servers_dict,
-        load_balancing_algorithm=pool.load_balancing_algorithm
+        load_balancing_algorithm=pool.load_balancing_algorithm,
+        monitor_id=pool.monitor_id
     )
     db.add(db_pool)
     await db.commit()
@@ -118,6 +139,7 @@ async def update_pool(db: AsyncSession, db_pool: models.Pool, pool_in: models.Po
     db_pool.name = pool_in.name
     db_pool.backend_servers = [s.dict() for s in pool_in.backend_servers]
     db_pool.load_balancing_algorithm = pool_in.load_balancing_algorithm
+    db_pool.monitor_id = pool_in.monitor_id
     await db.commit()
     await db.refresh(db_pool)
     return db_pool
@@ -144,6 +166,7 @@ async def create_service(db: AsyncSession, service: models.ServiceCreate):
     return db_service
 
 async def update_service(db: AsyncSession, db_service: models.Service, service_in: models.ServiceCreate):
+    # --- THIS LINE IS NOW FIXED ---
     update_data = service_in.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_service, key, value)

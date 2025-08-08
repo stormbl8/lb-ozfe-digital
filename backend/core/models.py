@@ -10,12 +10,28 @@ from .database import Base
 
 # --- SQLAlchemy ORM Models (For Database Schema) ---
 
+class Monitor(Base):
+    __tablename__ = "monitors"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    type = Column(String, default="http") # 'http' or 'tcp'
+    interval = Column(Integer, default=15) # seconds
+    timeout = Column(Integer, default=5) # seconds
+    # HTTP specific settings
+    http_method = Column(String, default="GET")
+    path = Column(String, default="/")
+    expected_status = Column(Integer, default=200)
+    expected_body = Column(String, nullable=True)
+    pools = relationship("Pool", back_populates="monitor")
+
 class Pool(Base):
     __tablename__ = "pools"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     backend_servers = Column(JSON, nullable=False, default=list)
     load_balancing_algorithm = Column(String, default="round_robin")
+    monitor_id = Column(Integer, ForeignKey("monitors.id"), nullable=True)
+    monitor = relationship("Monitor", back_populates="pools")
     services = relationship("Service", back_populates="pool")
 
 class Service(Base):
@@ -29,15 +45,15 @@ class Service(Base):
     forward_scheme = Column(String, default="http")
     websockets_support = Column(Boolean, default=True)
     waf_enabled = Column(Boolean, default=False)
+    session_persistence = Column(Boolean, default=False)
     certificate_name = Column(String, default="dummy")
     force_ssl = Column(Boolean, default=False)
     http2_support = Column(Boolean, default=False)
     hsts_enabled = Column(Boolean, default=False)
     hsts_subdomains = Column(Boolean, default=False)
-    advanced_config = Column(Text, nullable=True)
-    # --- THIS IS THE FIX ---
     basic_auth_user = Column(String, nullable=True)
     basic_auth_pass = Column(String, nullable=True)
+    advanced_config = Column(Text, nullable=True)
     pool = relationship("Pool", back_populates="services")
 
 class User(Base):
@@ -53,7 +69,6 @@ class User(Base):
 
 # --- Pydantic Models (For API Validation & Responses) ---
 
-# ... (rest of the file is the same)
 class UserBase(BaseModel):
     username: str = Field(..., min_length=1, description="Username cannot be empty.")
     email: Optional[str] = None
@@ -89,10 +104,29 @@ class BackendServer(BaseModel):
     max_fails: int = 3
     fail_timeout: str = "10s"
 
+class MonitorBase(BaseModel):
+    name: str
+    type: Literal["http", "tcp"] = "http"
+    interval: int = 15
+    timeout: int = 5
+    http_method: str = "GET"
+    path: str = "/"
+    expected_status: int = 200
+    expected_body: Optional[str] = None
+
+class MonitorCreate(MonitorBase):
+    pass
+
+class MonitorResponse(MonitorBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 class PoolBase(BaseModel):
     name: str
     backend_servers: List[BackendServer]
     load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash"]
+    monitor_id: Optional[int] = None
 
 class PoolCreate(PoolBase):
     pass
@@ -111,12 +145,12 @@ class ServiceBase(BaseModel):
     forward_scheme: str = "http"
     websockets_support: bool = True
     waf_enabled: bool = False
+    session_persistence: bool = False
     certificate_name: str = "dummy"
     force_ssl: bool = False
     http2_support: bool = False
     hsts_enabled: bool = False
     hsts_subdomains: bool = False
-    # --- THIS IS THE FIX ---
     basic_auth_user: Optional[str] = None
     basic_auth_pass: Optional[str] = None
     advanced_config: Optional[str] = None

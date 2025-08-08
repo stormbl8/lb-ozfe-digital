@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
 import Pools from './pages/Pools';
+import Monitors from './pages/Monitors';
 import Certs from './pages/Certs';
 import WAFRules from './pages/WAFRules';
 import Logs from './pages/Logs';
@@ -75,6 +76,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute><Layout><Services /></Layout></ProtectedRoute>} />
           <Route path="/pools" element={<ProtectedRoute><Layout><Pools /></Layout></ProtectedRoute>} />
+          <Route path="/monitors" element={<ProtectedRoute><Layout><Monitors /></Layout></ProtectedRoute>} />
           <Route path="/certs" element={<ProtectedRoute><Layout><Certs /></Layout></ProtectedRoute>} />
           <Route path="/waf" element={<ProtectedRoute><Layout><WAFRules /></Layout></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute><Layout><Logs /></Layout></ProtectedRoute>} />
