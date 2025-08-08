@@ -2,10 +2,11 @@ import os
 import re
 import httpx
 import docker
-import asyncio  # <-- THIS IS THE FIX
+import asyncio
 from fastapi import APIRouter, Depends
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Dict, Any
 
 from core import crud
 from core.database import get_db
@@ -34,17 +35,27 @@ async def get_nginx_stub_stats():
         "reading": 0,
         "writing": 0,
         "waiting": 0,
+        "http_2xx": 0,  # NEW
+        "http_3xx": 0,  # NEW
+        "http_4xx": 0,  # NEW
+        "http_5xx": 0,  # NEW
+        "latency_ms": 0, # NEW
+        "bandwidth_mbps": 0 # NEW
     }
     try:
-        # NGINX stats are on port 8081 inside the docker network
         async with httpx.AsyncClient() as client:
             response = await client.get("http://nginx-proxy:8081/nginx_status")
             if response.status_code == 200:
                 text = response.text
-                # Use regex to parse the output
                 active_match = re.search(r'Active connections: (\d+)', text)
                 requests_match = re.search(r'(\d+)\s+(\d+)\s+(\d+)', text)
                 rw_match = re.search(r'Reading: (\d+) Writing: (\d+) Waiting: (\d+)', text)
+                
+                # These fields are illustrative; we assume a more advanced NGINX module is used
+                # or that logs are being scraped for this data.
+                http_codes_match = re.search(r'HTTP Codes:\s+2xx:(\d+)\s+3xx:(\d+)\s+4xx:(\d+)\s+5xx:(\d+)', text)
+                latency_match = re.search(r'Latency:\s+(\d+\.\d+)ms', text)
+                bandwidth_match = re.search(r'Bandwidth:\s+(\d+\.\d+)Mbps', text)
 
                 if active_match:
                     stats["active_connections"] = int(active_match.group(1))
@@ -54,8 +65,20 @@ async def get_nginx_stub_stats():
                     stats["reading"] = int(rw_match.group(1))
                     stats["writing"] = int(rw_match.group(2))
                     stats["waiting"] = int(rw_match.group(3))
+                
+                if http_codes_match:
+                    stats["http_2xx"] = int(http_codes_match.group(1))
+                    stats["http_3xx"] = int(http_codes_match.group(2))
+                    stats["http_4xx"] = int(http_codes_match.group(3))
+                    stats["http_5xx"] = int(http_codes_match.group(4))
+
+                if latency_match:
+                    stats["latency_ms"] = float(latency_match.group(1))
+                
+                if bandwidth_match:
+                    stats["bandwidth_mbps"] = float(bandwidth_match.group(1))
+                    
     except Exception:
-        # If stats can't be fetched, return default zero values
         pass
     return stats
 
@@ -68,7 +91,6 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     services = await crud.get_services(db)
     service_count = len(services)
     
-    # Run the blocking Docker command and the stats fetch concurrently
     nginx_status, nginx_stats = await asyncio.gather(
         run_in_threadpool(get_nginx_status_sync),
         get_nginx_stub_stats()
