@@ -36,6 +36,12 @@ server {
 
     server_name {{ service.domain_name }};
 
+    # Enable ModSecurity WAF if the service requires it
+    {% if service.waf_enabled %}
+    modsecurity on;
+    modsecurity_rules_file /etc/nginx/waf/modsecurity.conf;
+    {% endif %}
+
     # Access Control
     {% if service.access_list_ips %}
         {% for ip in service.access_list_ips %}
@@ -52,8 +58,6 @@ server {
         auth_basic_user_file /data/htpasswd/service_{{ service.id }};
     {% endif %}
 
-    # --- THIS IS THE FIX ---
-    # Corrected SSL paths to point to the shared /data volume
     # SSL Configuration
     {% if service.certificate_name and service.certificate_name != 'dummy' %}
     ssl_certificate /data/certs/letsencrypt/live/{{ service.certificate_name }}/fullchain.pem;
