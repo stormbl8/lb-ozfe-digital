@@ -4,7 +4,7 @@ import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx, waf
+from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx, waf, license
 from core.health_checker import health_check_task
 from core.database import engine, Base
 from core import crud
@@ -62,6 +62,7 @@ app.include_router(monitors.router)
 app.include_router(gslb.router)
 app.include_router(nginx.router)
 app.include_router(waf.router)
+app.include_router(license.router)
 
 @app.get("/")
 def read_root():

@@ -260,3 +260,12 @@ class RateLimitSettings(BaseModel):
 
 class AppSettings(BaseModel):
     rate_limiting: RateLimitSettings = Field(default_factory=RateLimitSettings)
+
+
+class LicenseDetails(BaseModel):
+    user_limit: int = 1
+    allowed_roles: List[str] = ["read-only"]
+    admin_limit: int = 0
+    read_only_limit: int = 0
+    class Config:
+        from_attributes = True

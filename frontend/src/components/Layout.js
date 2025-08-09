@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
     Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, 
-    Typography, Divider, Button, AppBar, Grid, Paper
+    Typography, Divider, Button, AppBar, Grid
 } from '@mui/material';
 import axios from 'axios';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -42,6 +42,7 @@ const secondaryMenuItems = [
 const Layout = ({ children }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
+    const [hasLicense, setHasLicense] = useState(false);
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
@@ -66,6 +67,24 @@ const Layout = ({ children }) => {
         };
         fetchUser();
     }, []);
+    
+    // Fetch license status on every render
+    useEffect(() => {
+        const fetchLicenseStatus = async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await axios.get(`${API_URL}/license`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                setHasLicense(response.data.user_limit > 1);
+            } catch (error) {
+                setHasLicense(false);
+            }
+        };
+        fetchLicenseStatus();
+    }, [user]);
+
+    const managementItems = menuItems.concat(secondaryMenuItems);
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -103,11 +122,11 @@ const Layout = ({ children }) => {
                 anchor="left"
             >
                 <Toolbar /> 
-                <Box sx={{ flexGrow: 1 }}>
+                <div>
                     <List>
                         {menuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
-                                <ListItemButton component={NavLink} to={item.path}>
+                                <ListItemButton component={NavLink} to={item.path} disabled={!hasLicense && item.text === 'Proxy Hosts'}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
@@ -118,14 +137,14 @@ const Layout = ({ children }) => {
                     <List>
                          {secondaryMenuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
-                                <ListItemButton component={NavLink} to={item.path}>
+                                <ListItemButton component={NavLink} to={item.path} disabled={!hasLicense && ['WAF Rules', 'GSLB Management', 'User Management', 'Server Pools', 'Health Monitors', 'SSL Certificates'].includes(item.text)}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
                             </ListItem>
                         ))}
                     </List>
-                </Box>
+                </div>
                 <Box sx={{ marginTop: 'auto', p: 2 }}>
                     <Button
                         variant="contained"
@@ -139,7 +158,7 @@ const Layout = ({ children }) => {
             </Drawer>
             <Box
                 component="main"
-                sx={{ flexGrow: 1, p: 3, height: '100vh', overflow: 'auto' }}
+                sx={{ flexGrow: 1, bgcolor: 'background.default', p: 3, height: '100vh', overflow: 'auto' }}
             >
                 <Toolbar /> 
                 {children}

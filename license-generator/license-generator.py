@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 SECRET_KEY = os.environ.get("SECRET_KEY")
 username = os.environ.get("LICENSE_USER")
 role = os.environ.get("LICENSE_ROLE")
-user_limit = int(os.environ.get("USER_LIMIT", "1"))
+admin_limit = int(os.environ.get("ADMIN_LIMIT", "0"))
+read_only_limit = int(os.environ.get("READ_ONLY_LIMIT", "0"))
 allowed_roles_str = os.environ.get("ALLOWED_ROLES", "read-only")
 output_dir = os.environ.get("OUTPUT_DIR")
 
@@ -20,7 +21,9 @@ payload = {
     "sub": username,
     "role": role,
     "exp": datetime.now(timezone.utc) + timedelta(days=36500),  # License valid for 100 years
-    "user_limit": user_limit,
+    "user_limit": admin_limit + read_only_limit,
+    "admin_limit": admin_limit,
+    "read_only_limit": read_only_limit,
     "allowed_roles": [r.strip() for r in allowed_roles_str.split(',')]
 }
 

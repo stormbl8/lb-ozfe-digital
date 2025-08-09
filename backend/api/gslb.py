@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core import crud, models
 from core.database import get_db
-from core.security import get_current_admin_user
+from core.security import get_current_admin_user, get_current_user
 
 router = APIRouter(
     prefix="/api/gslb",
@@ -49,7 +49,8 @@ async def create_datacenter(
 @router.get("/datacenters", response_model=List[models.DatacenterResponse])
 async def list_datacenters(
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    # FIX: Allow all authenticated users to view datacenters
+    current_user: models.User = Depends(get_current_user)
 ):
     """Retrieve all datacenters."""
     return await crud.get_datacenters(db)

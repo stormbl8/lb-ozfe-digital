@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core import crud, models, security
 from core.database import get_db
+from core.license_manager import read_license, save_license
 
 router = APIRouter(
     prefix="/api/auth",
@@ -51,11 +52,29 @@ async def read_users(
 async def create_new_user(
     user_data: models.AdminUserCreate,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(security.get_current_admin_user)
+    admin_user: models.User = Depends(security.get_current_admin_user),
+    # Use the new dependency to enforce the license
+    license_check: None = Depends(security.enforce_active_license)
 ):
     """
-    Create a new user with a specific role. Only accessible by admin users.
+    Create a new user with a specific role. Admin only. Requires a valid license.
     """
+    # Check license limits based on user role
+    license_data = read_license()
+    admin_count = await crud.get_users_count_by_role(db, "admin")
+    read_only_count = await crud.get_users_count_by_role(db, "read-only")
+
+    if user_data.role == "admin" and admin_count >= license_data.admin_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin user limit exceeded."
+        )
+    if user_data.role == "read-only" and read_only_count >= license_data.read_only_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only user limit exceeded."
+        )
+        
     db_user_by_username = await crud.get_user_by_username(db, username=user_data.username)
     if db_user_by_username:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
@@ -138,6 +157,9 @@ async def upload_license(
         user_to_update = await crud.get_user_by_username(db, username=license_username)
         if not user_to_update:
             raise HTTPException(status_code=404, detail=f"User '{license_username}' not found.")
+
+        # --- FIX: Save the entire decoded payload to the license file ---
+        save_license(decoded_token)
 
         user_to_update.role = license_role
         await db.commit()

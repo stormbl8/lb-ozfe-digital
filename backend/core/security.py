@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Import the new database and CRUD functions
 from .database import get_db
 from . import crud, models
+from .license_manager import read_license
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
@@ -61,3 +62,13 @@ async def get_current_admin_user(current_user: Annotated[models.User, Depends(ge
             detail="You do not have permission to perform this action"
         )
     return current_user
+
+async def enforce_active_license():
+    """A dependency to check for the presence of a valid license before allowing access."""
+    license_data = read_license()
+    # Check if the license allows for more than the default 1 user
+    if license_data.user_limit <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A license is required to access this feature."
+        )

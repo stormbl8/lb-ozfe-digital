@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import crud, models
 from core.database import get_db
 from core.nginx_manager import regenerate_configs_for_datacenter
-from core.security import get_current_admin_user, get_current_user
+from core.security import get_current_admin_user, get_current_user, enforce_active_license
 
 router = APIRouter(
     prefix="/api/pools",
@@ -26,7 +26,9 @@ async def list_pools(
 async def add_new_pool(
     pool_data: models.PoolCreate,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    admin_user: models.User = Depends(get_current_admin_user),
+    # Enforce license for management actions
+    license_check: None = Depends(enforce_active_license)
 ):
     """
     Add a new server pool.

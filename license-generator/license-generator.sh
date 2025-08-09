@@ -9,7 +9,7 @@ set -e
 IMAGE_NAME="license-generator-image"
 CONTAINER_NAME="license-generator-container"
 LICENSE_GENERATOR_DIR="license-generator"
-LICENSE_DIR="data/licenses"
+LICENSE_DIR="."
 
 # Check if the .env file exists and source it to get the SECRET_KEY
 if [ ! -f .env ]; then
@@ -42,10 +42,16 @@ while true; do
   fi
 done
 
-# Prompt for user limit
-read -p "Enter the maximum number of users allowed by this license: " user_limit
-if ! [[ "$user_limit" =~ ^[0-9]+$ ]]; then
-    echo "Error: User limit must be a positive integer."
+# Prompt for separate user limits
+read -p "Enter the maximum number of ADMIN users allowed by this license: " admin_limit
+if ! [[ "$admin_limit" =~ ^[0-9]+$ ]]; then
+    echo "Error: Admin limit must be a positive integer."
+    exit 1
+fi
+
+read -p "Enter the maximum number of READ-ONLY users allowed by this license: " read_only_limit
+if ! [[ "$read_only_limit" =~ ^[0-9]+$ ]]; then
+    echo "Error: Read-only limit must be a positive integer."
     exit 1
 fi
 
@@ -70,7 +76,8 @@ docker run --rm \
   -e "SECRET_KEY=$SECRET_KEY" \
   -e "LICENSE_USER=$username" \
   -e "LICENSE_ROLE=$role" \
-  -e "USER_LIMIT=$user_limit" \
+  -e "ADMIN_LIMIT=$admin_limit" \
+  -e "READ_ONLY_LIMIT=$read_only_limit" \
   -e "ALLOWED_ROLES=$allowed_roles" \
   -e "OUTPUT_DIR=/output" \
   -v "$(pwd)/$LICENSE_DIR:/output" \

@@ -1,6 +1,8 @@
 import os
 import subprocess
 import logging
+import zipfile
+from io import BytesIO
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -8,7 +10,7 @@ from typing import List, Dict, Any
 from OpenSSL import crypto
 from datetime import datetime, timedelta, timezone
 
-from core.security import get_current_admin_user
+from core.security import get_current_admin_user, get_current_user
 from core import models
 from core.cert_manager import get_cert_info, run_certbot_issue
 
@@ -45,7 +47,11 @@ async def issue_certificate(req: IssueRequest, background_tasks: BackgroundTasks
     return {"message": f"Certificate issuance for {req.domain} has been started. Check backend logs for status."}
 
 @router.get("", response_model=List[CertificateResponse])
-async def list_certificates(admin_user: models.User = Depends(get_current_admin_user)):
+async def list_certificates(current_user: models.User = Depends(get_current_user)):
+    """
+    Retrieve a list of all discovered certificates.
+    Accessible by all authenticated users.
+    """
     valid_certs = []
     if not os.path.exists(LETSENCRYPT_DIR):
         return []
@@ -74,18 +80,16 @@ async def list_certificates(admin_user: models.User = Depends(get_current_admin_
         return []
 
 @router.get("/{cert_name}/download")
-async def download_certificate(cert_name: str, admin_user: models.User = Depends(get_current_admin_user)):
+async def download_certificate(cert_name: str, current_user: models.User = Depends(get_current_user)):
     """
     Allows remote backends to download a certificate's key and fullchain.
+    Accessible by all authenticated users.
     """
     cert_dir = os.path.join(LETSENCRYPT_DIR, cert_name)
     if not os.path.isdir(cert_dir):
         raise HTTPException(status_code=404, detail="Certificate not found")
     
     try:
-        import zipfile
-        from io import BytesIO
-        
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             fullchain_path = os.path.join(cert_dir, "fullchain.pem")
@@ -109,16 +113,13 @@ async def upload_certificate(file: UploadFile, admin_user: models.User = Depends
     This would typically be called by a regional backend after a successful renewal.
     """
     try:
-        import zipfile
-        from io import BytesIO
+        zip_buffer = BytesIO(await file.read())
         
         cert_name = file.filename.replace(".zip", "")
         cert_dir = os.path.join(LETSENCRYPT_DIR, cert_name)
         os.makedirs(cert_dir, exist_ok=True)
         
-        file_content = await file.read()
-        
-        with zipfile.ZipFile(BytesIO(file_content)) as zf:
+        with zipfile.ZipFile(zip_buffer) as zf:
             zf.extractall(cert_dir)
             
         return {"message": f"Certificate files for {cert_name} uploaded successfully."}

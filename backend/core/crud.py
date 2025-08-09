@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from . import models, security
 
@@ -29,6 +29,16 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100):
         .limit(limit)
     )
     return result.scalars().all()
+
+async def get_users_count(db: AsyncSession) -> int:
+    """Returns the total number of users."""
+    result = await db.execute(select(func.count(models.User.id)))
+    return result.scalar_one()
+
+async def get_users_count_by_role(db: AsyncSession, role: str) -> int:
+    """Returns the number of users with a specific role."""
+    result = await db.execute(select(func.count(models.User.id)).filter(models.User.role == role))
+    return result.scalar_one()
 
 async def create_user(db: AsyncSession, user: models.AdminUserCreate):
     hashed_password = security.get_password_hash(user.password)
@@ -65,15 +75,19 @@ async def delete_user(db: AsyncSession, db_user: models.User):
 async def create_first_user(db: AsyncSession, admin_user: str, admin_email: str, admin_pass: str):
     users = await get_users(db)
     if not users:
-        logger.info("No users found. Creating default admin user...")
-        admin_data = models.AdminUserCreate(
-            username=admin_user,
-            email=admin_email,
-            password=admin_pass,
-            role="admin"
-        )
-        await create_user(db, admin_data)
-        logger.info(f"Default admin user '{admin_user}' created.")
+        license_data = read_license()
+        if license_data.user_limit > 1:
+            logger.info("No users found. Creating default admin user...")
+            admin_data = models.AdminUserCreate(
+                username=admin_user,
+                email=admin_email,
+                password=admin_pass,
+                role="admin"
+            )
+            await create_user(db, admin_data)
+            logger.info(f"Default admin user '{admin_user}' created.")
+        else:
+            logger.warning("No valid license found. Skipping default user creation.")
     else:
         logger.info("Users already exist. Skipping default user creation.")
 
