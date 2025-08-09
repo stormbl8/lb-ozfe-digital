@@ -1,12 +1,8 @@
 import React from 'react';
-import { Dialog, DialogContent, IconButton } from '@mui/material';
+import { Dialog, DialogContent, IconButton, Box, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
 const Modal = ({ isOpen, onClose, children }) => {
-  if (!isOpen) {
-    return null;
-  }
-
   return (
     <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
       <IconButton

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
     Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, 
-    Typography, Divider, Button, AppBar, Grid
+    Typography, Divider, Button, AppBar, Grid, Paper
 } from '@mui/material';
 import axios from 'axios';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -103,7 +103,7 @@ const Layout = ({ children }) => {
                 anchor="left"
             >
                 <Toolbar /> 
-                <div>
+                <Box sx={{ flexGrow: 1 }}>
                     <List>
                         {menuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
@@ -125,7 +125,7 @@ const Layout = ({ children }) => {
                             </ListItem>
                         ))}
                     </List>
-                </div>
+                </Box>
                 <Box sx={{ marginTop: 'auto', p: 2 }}>
                     <Button
                         variant="contained"
@@ -139,7 +139,7 @@ const Layout = ({ children }) => {
             </Drawer>
             <Box
                 component="main"
-                sx={{ flexGrow: 1, bgcolor: 'background.default', p: 3, height: '100vh', overflow: 'auto' }}
+                sx={{ flexGrow: 1, p: 3, height: '100vh', overflow: 'auto' }}
             >
                 <Toolbar /> 
                 {children}

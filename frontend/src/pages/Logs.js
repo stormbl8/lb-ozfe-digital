@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Box, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 
 // The WebSocket URL is derived from the API URL
 const WS_URL = 'ws://localhost:8000/ws/logs';
@@ -47,36 +48,38 @@ const LogViewer = ({ logType }) => {
   }, [logs]);
 
   return (
-    <div className="card">
-      <h3>{logType.charAt(0).toUpperCase() + logType.slice(1)} Log</h3>
-      <p>Status: <span style={{ color: isConnected ? 'green' : 'red' }}>●</span> {isConnected ? 'Connected' : 'Disconnected'}</p>
-      <pre
-        ref={logContainerRef}
-        style={{
-          backgroundColor: '#2b2b2b',
-          color: '#f1f1f1',
-          border: '1px solid #ddd',
-          padding: '10px',
-          height: '300px',
-          overflowY: 'scroll',
-          whiteSpace: 'pre-wrap',
-          wordWrap: 'break-word',
-        }}
-      >
-        {logs.join('\n')}
-      </pre>
-    </div>
+    <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>{logType.charAt(0).toUpperCase() + logType.slice(1)} Log</Typography>
+        <Typography variant="body2" sx={{ mb: 1 }}>Status: <span style={{ color: isConnected ? 'green' : 'red' }}>●</span> {isConnected ? 'Connected' : 'Disconnected'}</Typography>
+        <Box
+            ref={logContainerRef}
+            sx={{
+                backgroundColor: '#2b2b2b',
+                color: '#f1f1f1',
+                border: '1px solid #ddd',
+                p: 2,
+                height: '300px',
+                overflowY: 'scroll',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                fontFamily: 'monospace',
+                fontSize: 12
+            }}
+        >
+            {logs.join('\n')}
+        </Box>
+    </Paper>
   );
 };
 
 const Logs = () => {
   return (
-    <div>
-      <h1 className="page-header">Logs</h1>
-      <p>View real-time access and error logs from the NGINX proxy.</p>
-      <LogViewer logType="access" />
-      <LogViewer logType="error" />
-    </div>
+    <Box>
+        <Typography variant="h4" gutterBottom>Logs</Typography>
+        <Typography variant="body1" sx={{ mb: 3 }}>View real-time access and error logs from the NGINX proxy.</Typography>
+        <LogViewer logType="access" />
+        <LogViewer logType="error" />
+    </Box>
   );
 };
 

@@ -20,14 +20,41 @@ import GSLB from './pages/GSLB';
 
 const API_URL = 'http://localhost:8000/api';
 
+// Redefine the theme for a more professional look
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
-      main: '#3498db',
+      main: '#2c3e50', // A dark, professional blue
+    },
+    secondary: {
+      main: '#3498db', // A bright blue for accents
     },
     background: {
-      default: '#ecf0f1',
-    }
+      default: '#f4f6f8', // A very light, clean background
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    h4: {
+      fontWeight: 600,
+      color: '#2c3e50',
+    },
+    h6: {
+      fontWeight: 500,
+      color: '#2c3e50',
+    },
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+          borderRadius: 8,
+        },
+      },
+    },
   },
 });
 

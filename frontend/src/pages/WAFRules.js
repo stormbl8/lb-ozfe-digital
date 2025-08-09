@@ -87,7 +87,9 @@ const WAFRules = () => {
     return (
         <Box>
             <Typography variant="h4" gutterBottom>WAF Rulesets</Typography>
-            <p>Create and manage reusable sets of WAF rules to apply to your proxy hosts. OWASP rule IDs to exclude can be found in the official documentation.</p>
+            <Typography variant="body1" sx={{ mb: 3 }}>
+                Create and manage reusable sets of WAF rules to apply to your proxy hosts. OWASP rule IDs to exclude can be found in the official documentation.
+            </Typography>
             
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
 
