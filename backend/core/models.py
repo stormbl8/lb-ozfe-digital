@@ -259,7 +259,18 @@ class RateLimitSettings(BaseModel):
     burst: int = Field(default=20, gt=0)
 
 class AppSettings(BaseModel):
+    management_ip_v4: Optional[str] = '192.168.0.100'
+    management_netmask_v4: Optional[str] = '255.255.255.0'
+    management_route_v4: Optional[str] = '0.0.0.0'
+    hostname: Optional[str] = 'bigip1'
+    timezone: Optional[str] = 'America/Los_Angeles'
+    root_account_password_set: bool = False
+    ssh_access_enabled: bool = False
+    ssh_ip_allow: Optional[str] = '0.0.0.0/0'
     rate_limiting: RateLimitSettings = Field(default_factory=RateLimitSettings)
+    # FIX: Add Cloudflare settings to the editable settings model
+    cloudflare_email: str = ''
+    cloudflare_api_key: str = ''
 
 
 class LicenseDetails(BaseModel):

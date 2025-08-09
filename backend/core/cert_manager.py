@@ -13,6 +13,7 @@ from .database import AsyncSessionLocal
 from . import crud
 from .nginx_manager import regenerate_configs_for_datacenter
 from core.security import create_access_token
+from .settings_manager import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,14 @@ def get_cert_info(cert_path: str) -> Dict[str, Any]:
         "is_expiring": is_expiring
     }
 
-def run_certbot_issue(domain: str, email: str, api_key: str, use_staging: bool) -> bool:
+def run_certbot_issue(domain: str, use_staging: bool) -> bool:
     """
     Synchronous function to run certbot issuance.
     """
+    settings = load_settings()
+    email = settings.cloudflare_email
+    api_key = settings.cloudflare_api_key
+
     logger.info(f"Starting certificate issuance for {domain} (Staging: {use_staging})")
     creds_content = (f"dns_cloudflare_email = {email}\n" f"dns_cloudflare_api_key = {api_key}")
     try:
@@ -91,6 +96,14 @@ async def cert_renewal_task():
         
         db = AsyncSessionLocal()
         try:
+            settings = load_settings()
+            email = settings.cloudflare_email
+            api_key = settings.cloudflare_api_key
+
+            if not all([email, api_key]):
+                logger.error("Cloudflare email and API key not set in settings. Automated renewal is disabled.")
+                continue
+
             services = await crud.get_services(db)
             certs_to_check = set()
             for service in services:
@@ -107,14 +120,7 @@ async def cert_renewal_task():
                         if days_to_expiration <= RENEWAL_THRESHOLD_DAYS:
                             logger.warning(f"Certificate for {cert_name} is expiring in {days_to_expiration} days. Attempting renewal.")
                             
-                            email = os.getenv("CLOUDFLARE_EMAIL")
-                            api_key = os.getenv("CLOUDFLARE_API_KEY")
-
-                            if not all([email, api_key]):
-                                logger.error("CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY must be set to run automated renewal.")
-                                continue
-                            
-                            renewal_success = await asyncio.to_thread(run_certbot_issue, cert_name, email, api_key, False)
+                            renewal_success = await asyncio.to_thread(run_certbot_issue, cert_name, False)
                             
                             if renewal_success:
                                 logger.info(f"Certificate for {cert_name} renewed successfully.")

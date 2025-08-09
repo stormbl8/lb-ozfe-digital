@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from core.security import get_current_admin_user, get_current_user
 from core import models
 from core.cert_manager import get_cert_info, run_certbot_issue
+from core.settings_manager import load_settings
 
 class IssueRequest(BaseModel):
     domain: str
@@ -36,13 +37,16 @@ router = APIRouter(
 
 @router.post("/issue")
 async def issue_certificate(req: IssueRequest, background_tasks: BackgroundTasks, admin_user: models.User = Depends(get_current_admin_user)):
-    email = os.getenv("CLOUDFLARE_EMAIL")
-    api_key = os.getenv("CLOUDFLARE_API_KEY")
+    # FIX: Read credentials from settings, not environment variables
+    settings = load_settings()
+    email = settings.cloudflare_email
+    api_key = settings.cloudflare_api_key
 
     if not all([email, api_key]):
-        raise HTTPException(status_code=412, detail="CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY must be set in the .env file.")
+        raise HTTPException(status_code=412, detail="Cloudflare email and API key must be set in the UI settings.")
 
-    background_tasks.add_task(run_certbot_issue, req.domain, email, api_key, req.use_staging)
+    # FIX: Call run_certbot_issue with the corrected signature
+    background_tasks.add_task(run_certbot_issue, req.domain, req.use_staging)
     
     return {"message": f"Certificate issuance for {req.domain} has been started. Check backend logs for status."}
 
