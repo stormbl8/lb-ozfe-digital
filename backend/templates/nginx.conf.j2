@@ -12,6 +12,16 @@ upstream pool_{{ pool.id }} {
     {% endfor %}
 }
 
+# GSLB configuration for geo-based routing if enabled
+{% if gslb_service_config and gslb_service_config.load_balancing_algorithm == 'geo' %}
+map $geoip2_country_code $gslb_pool_{{ gslb_service_config.id }} {
+    default {{ gslb_service_config.geoip_map.default_datacenter_id }};
+    {% for mapping in gslb_service_config.geoip_map.mappings %}
+    {{ mapping.country_code }} {{ mapping.datacenter_id }};
+    {% endfor %}
+}
+{% endif %}
+
 # HTTP server block for redirection to HTTPS
 {% if service.force_ssl %}
 server {
@@ -35,7 +45,6 @@ server {
     {% endif %}
 
     server_name {{ service.domain_name }};
-
     # Enable ModSecurity WAF if the service requires it
     {% if service.waf_enabled %}
     modsecurity on;
@@ -47,7 +56,7 @@ server {
         {% for ip in service.access_list_ips %}
             {% if ip.strip() %}
         {{ service.access_list_type }} {{ ip.strip() }};
-            {% endif %}
+        {% endif %}
         {% endfor %}
         deny all;
     {% endif %}

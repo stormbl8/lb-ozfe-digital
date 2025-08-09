@@ -11,16 +11,19 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SyncIcon from '@mui/icons-material/Sync';
 import AddIcon from '@mui/icons-material/Add';
 import toast from 'react-hot-toast';
+import Modal from '../components/Modal';
 
 const API_URL = 'http://localhost:8000/api';
 
 const GSLB = () => {
     const [datacenters, setDatacenters] = useState([]);
     const [gslbServices, setGslbServices] = useState([]);
+    const [editingGslbService, setEditingGslbService] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [error, setError] = useState('');
     const [newDatacenter, setNewDatacenter] = useState({ name: '', location: '', nginx_ip: '', api_url: '' });
-    const [newGslbService, setNewGslbService] = useState({ domain_name: '', load_balancing_algorithm: 'round_robin', datacenters: [] });
+    const [newGslbService, setNewGslbService] = useState({ domain_name: '', load_balancing_algorithm: 'round_robin', datacenters: [], geoip_map: { default_datacenter_id: null, mappings: [] } });
 
     const fetchAllData = useCallback(async () => {
         try {
@@ -28,13 +31,15 @@ const GSLB = () => {
             const token = localStorage.getItem('access_token');
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
             
-            const [datacentersRes, gslbRes] = await Promise.all([
+            const [datacentersRes, gslbRes, userRes] = await Promise.all([
                 axios.get(`${API_URL}/gslb/datacenters`, authHeaders),
                 axios.get(`${API_URL}/gslb/services`, authHeaders),
+                axios.get(`${API_URL}/auth/users/me`, authHeaders)
             ]);
             
             setDatacenters(datacentersRes.data);
             setGslbServices(gslbRes.data);
+            setIsAdmin(userRes.data.role === 'admin');
             setError('');
         } catch (err) {
             setError('Failed to fetch GSLB data. Ensure you have admin privileges.');
@@ -55,6 +60,16 @@ const GSLB = () => {
     const handleGslbServiceInputChange = (e) => {
         const { name, value, type } = e.target;
         setNewGslbService(prev => ({ ...prev, [name]: type === 'checkbox' ? e.target.checked : value }));
+    };
+
+    const handleOpenEditModal = (service) => {
+        setEditingGslbService({
+            ...service,
+            // Ensure geoip_map is initialized when opening the modal for editing
+            geoip_map: service.load_balancing_algorithm === 'geo' && !service.geoip_map
+                ? { default_datacenter_id: null, mappings: [] }
+                : service.geoip_map
+        });
     };
 
     const handleCreateDatacenter = async (e) => {
@@ -79,11 +94,37 @@ const GSLB = () => {
         const toastId = toast.loading('Creating GSLB service...');
         try {
             const token = localStorage.getItem('access_token');
-            await axios.post(`${API_URL}/gslb/services`, newGslbService, {
+            const payload = {
+                ...newGslbService,
+                datacenters: newGslbService.datacenters.map(id => parseInt(id, 10)),
+                geoip_map: newGslbService.load_balancing_algorithm === 'geo' ? newGslbService.geoip_map : null
+            };
+            await axios.post(`${API_URL}/gslb/services`, payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             toast.success('GSLB Service created successfully!', { id: toastId });
-            setNewGslbService({ domain_name: '', load_balancing_algorithm: 'round_robin', datacenters: [] });
+            setNewGslbService({ domain_name: '', load_balancing_algorithm: 'round_robin', datacenters: [], geoip_map: { default_datacenter_id: null, mappings: [] } });
+            fetchAllData();
+        } catch (err) {
+            const errorMessage = err.response?.data?.detail || err.message;
+            toast.error(`Error: ${errorMessage}`, { id: toastId });
+        }
+    };
+
+    const handleUpdateGslbService = async () => {
+        const toastId = toast.loading('Updating GSLB service...');
+        try {
+            const token = localStorage.getItem('access_token');
+            const payload = {
+                ...editingGslbService,
+                datacenters: editingGslbService.datacenters.map(id => parseInt(id, 10)),
+                geoip_map: editingGslbService.load_balancing_algorithm === 'geo' ? editingGslbService.geoip_map : null
+            };
+            await axios.put(`${API_URL}/gslb/services/${editingGslbService.id}`, payload, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            toast.success('GSLB Service updated successfully!', { id: toastId });
+            setEditingGslbService(null);
             fetchAllData();
         } catch (err) {
             const errorMessage = err.response?.data?.detail || err.message;
@@ -144,13 +185,13 @@ const GSLB = () => {
             <Typography variant="h4" gutterBottom>GSLB Management</Typography>
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             
-            {/* Sync Button */}
             <Box sx={{ mb: 3 }}>
                 <Tooltip title="Sync all datacenter configurations. This will regenerate all NGINX configs on every datacenter.">
                     <Button
                         variant="contained"
                         startIcon={<SyncIcon />}
                         onClick={handleSyncAll}
+                        disabled={!isAdmin}
                     >
                         Sync All Datacenters
                     </Button>
@@ -183,9 +224,11 @@ const GSLB = () => {
                                         <TableCell>{dc.api_url}</TableCell>
                                         <TableCell align="right">
                                             <Tooltip title="Delete">
-                                                <IconButton onClick={() => handleDeleteDatacenter(dc.id, dc.name)}>
-                                                    <DeleteIcon color="error" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton onClick={() => handleDeleteDatacenter(dc.id, dc.name)} disabled={!isAdmin}>
+                                                        <DeleteIcon color="error" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                         </TableCell>
                                     </TableRow>
@@ -197,13 +240,15 @@ const GSLB = () => {
                     </Table>
                 </TableContainer>
                 
-                <Box component="form" onSubmit={handleCreateDatacenter} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <TextField size="small" label="Name" name="name" value={newDatacenter.name} onChange={handleDatacenterInputChange} required />
-                    <TextField size="small" label="Location" name="location" value={newDatacenter.location} onChange={handleDatacenterInputChange} />
-                    <TextField size="small" label="NGINX IP" name="nginx_ip" value={newDatacenter.nginx_ip} onChange={handleDatacenterInputChange} required />
-                    <TextField size="small" label="API URL" name="api_url" value={newDatacenter.api_url} onChange={handleDatacenterInputChange} required />
-                    <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add Datacenter</Button>
-                </Box>
+                {isAdmin && (
+                    <Box component="form" onSubmit={handleCreateDatacenter} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField size="small" label="Name" name="name" value={newDatacenter.name} onChange={handleDatacenterInputChange} required />
+                        <TextField size="small" label="Location" name="location" value={newDatacenter.location} onChange={handleDatacenterInputChange} />
+                        <TextField size="small" label="NGINX IP" name="nginx_ip" value={newDatacenter.nginx_ip} onChange={handleDatacenterInputChange} required />
+                        <TextField size="small" label="API URL" name="api_url" value={newDatacenter.api_url} onChange={handleDatacenterInputChange} required />
+                        <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add Datacenter</Button>
+                    </Box>
+                )}
             </Paper>
 
             {/* GSLB Services Section */}
@@ -231,10 +276,19 @@ const GSLB = () => {
                                             {gslb.datacenters.map(id => datacenters.find(dc => dc.id === id)?.name || 'N/A').join(', ')}
                                         </TableCell>
                                         <TableCell align="right">
+                                            <Tooltip title="Edit">
+                                                <span>
+                                                    <IconButton onClick={() => handleOpenEditModal(gslb)} disabled={!isAdmin}>
+                                                        <EditIcon />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
                                             <Tooltip title="Delete">
-                                                <IconButton onClick={() => handleDeleteGslbService(gslb.id, gslb.domain_name)}>
-                                                    <DeleteIcon color="error" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton onClick={() => handleDeleteGslbService(gslb.id, gslb.domain_name)} disabled={!isAdmin}>
+                                                        <DeleteIcon color="error" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                         </TableCell>
                                     </TableRow>
@@ -246,37 +300,152 @@ const GSLB = () => {
                     </Table>
                 </TableContainer>
                 
-                <Box component="form" onSubmit={handleCreateGslbService} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <TextField size="small" label="Domain Name" name="domain_name" value={newGslbService.domain_name} onChange={handleGslbServiceInputChange} required />
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <InputLabel>Algorithm</InputLabel>
+                {isAdmin && (
+                    <Box component="form" onSubmit={handleCreateGslbService} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField size="small" label="Domain Name" name="domain_name" value={newGslbService.domain_name} onChange={handleGslbServiceInputChange} required />
+                        <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <InputLabel>Algorithm</InputLabel>
+                            <Select
+                                name="load_balancing_algorithm"
+                                value={newGslbService.load_balancing_algorithm}
+                                onChange={handleGslbServiceInputChange}
+                                label="Algorithm"
+                            >
+                                <MenuItem value="round_robin">Round Robin</MenuItem>
+                                <MenuItem value="geo">Geo-based</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <FormControl size="small" fullWidth>
+                            <InputLabel>Datacenters</InputLabel>
+                            <Select
+                                name="datacenters"
+                                multiple
+                                value={newGslbService.datacenters}
+                                onChange={(e) => setNewGslbService(prev => ({ ...prev, datacenters: e.target.value }))}
+                                label="Datacenters"
+                            >
+                                {datacenters.map(dc => (
+                                    <MenuItem key={dc.id} value={dc.id}>{dc.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add GSLB Service</Button>
+                    </Box>
+                )}
+            </Paper>
+
+            <Modal isOpen={!!editingGslbService} onClose={() => setEditingGslbService(null)}>
+                <Box p={4}>
+                    <Typography variant="h5" gutterBottom>Edit GSLB Service: {editingGslbService?.domain_name}</Typography>
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel>Load Balancing Algorithm</InputLabel>
                         <Select
                             name="load_balancing_algorithm"
-                            value={newGslbService.load_balancing_algorithm}
-                            onChange={handleGslbServiceInputChange}
-                            label="Algorithm"
+                            value={editingGslbService?.load_balancing_algorithm || 'round_robin'}
+                            onChange={(e) => {
+                                const newAlgo = e.target.value;
+                                setEditingGslbService(prev => ({ 
+                                    ...prev, 
+                                    load_balancing_algorithm: newAlgo,
+                                    // Initialize geoip_map if switching to geo-based
+                                    geoip_map: newAlgo === 'geo' && !prev?.geoip_map ? { default_datacenter_id: null, mappings: [] } : prev.geoip_map
+                                }));
+                            }}
+                            label="Load Balancing Algorithm"
                         >
                             <MenuItem value="round_robin">Round Robin</MenuItem>
                             <MenuItem value="geo">Geo-based</MenuItem>
                         </Select>
                     </FormControl>
-                    <FormControl size="small" fullWidth>
-                        <InputLabel>Datacenters</InputLabel>
-                        <Select
-                            name="datacenters"
-                            multiple
-                            value={newGslbService.datacenters}
-                            onChange={(e) => setNewGslbService(prev => ({ ...prev, datacenters: e.target.value }))}
-                            label="Datacenters"
-                        >
-                            {datacenters.map(dc => (
-                                <MenuItem key={dc.id} value={dc.id}>{dc.name}</MenuItem>
+
+                    {editingGslbService?.load_balancing_algorithm === 'geo' && editingGslbService?.geoip_map && (
+                        <>
+                            <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>GeoIP Routing Map</Typography>
+                            <FormControl fullWidth margin="normal">
+                                <InputLabel>Default Datacenter</InputLabel>
+                                <Select
+                                    name="default_datacenter_id"
+                                    value={editingGslbService.geoip_map.default_datacenter_id || ''}
+                                    onChange={(e) => setEditingGslbService(prev => ({ 
+                                        ...prev, 
+                                        geoip_map: { 
+                                            ...prev.geoip_map, 
+                                            default_datacenter_id: e.target.value 
+                                        }
+                                    }))}
+                                    label="Default Datacenter"
+                                >
+                                    {datacenters.map(dc => (
+                                        <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            
+                            <Typography variant="subtitle1" sx={{ mt: 2 }}>Country Mappings</Typography>
+                            {editingGslbService.geoip_map.mappings.map((mapping, index) => (
+                                <Grid container spacing={2} key={index} alignItems="center" sx={{ mt: 1 }}>
+                                    <Grid item xs={5}>
+                                        <TextField 
+                                            fullWidth size="small" label="Country Code (e.g., DE)" 
+                                            value={mapping.country_code}
+                                            onChange={(e) => {
+                                                const newMappings = [...editingGslbService.geoip_map.mappings];
+                                                newMappings[index].country_code = e.target.value;
+                                                setEditingGslbService(prev => ({
+                                                    ...prev,
+                                                    geoip_map: { ...prev.geoip_map, mappings: newMappings }
+                                                }));
+                                            }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={5}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Datacenter</InputLabel>
+                                            <Select
+                                                value={mapping.datacenter_id}
+                                                onChange={(e) => {
+                                                    const newMappings = [...editingGslbService.geoip_map.mappings];
+                                                    newMappings[index].datacenter_id = e.target.value;
+                                                    setEditingGslbService(prev => ({
+                                                        ...prev,
+                                                        geoip_map: { ...prev.geoip_map, mappings: newMappings }
+                                                    }));
+                                                }}
+                                                label="Datacenter"
+                                            >
+                                                {datacenters.map(dc => (
+                                                    <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={2}>
+                                        <IconButton onClick={() => {
+                                            const newMappings = editingGslbService.geoip_map.mappings.filter((_, i) => i !== index);
+                                            setEditingGslbService(prev => ({
+                                                ...prev,
+                                                geoip_map: { ...prev.geoip_map, mappings: newMappings }
+                                            }));
+                                        }}><DeleteIcon /></IconButton>
+                                    </Grid>
+                                </Grid>
                             ))}
-                        </Select>
-                    </FormControl>
-                    <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add GSLB Service</Button>
+                            <Button sx={{ mt: 2 }} startIcon={<AddIcon />} onClick={() => setEditingGslbService(prev => ({
+                                ...prev,
+                                geoip_map: {
+                                    ...prev.geoip_map,
+                                    mappings: [...(prev.geoip_map?.mappings || []), { country_code: '', datacenter_id: '' }]
+                                }
+                            }))}>Add Mapping</Button>
+                        </>
+                    )}
+
+                    <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
+                        <Button onClick={() => setEditingGslbService(null)} variant="outlined">Cancel</Button>
+                        <Button variant="contained" onClick={handleUpdateGslbService}>Save</Button>
+                    </Box>
                 </Box>
-            </Paper>
+            </Modal>
         </Box>
     );
 };

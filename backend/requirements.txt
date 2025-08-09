@@ -18,3 +18,4 @@ passlib
 sqlalchemy
 psycopg2-binary
 asyncpg
+geoip2

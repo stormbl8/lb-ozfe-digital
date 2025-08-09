@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     liblmdb-dev \
     zlib1g-dev \
     unzip \
+    libmaxminddb-dev \
     --no-install-recommends
 
 # --- COMPILE MODSECURITY V3 ---
@@ -37,13 +38,18 @@ RUN cd /tmp && \
 RUN cd /tmp && \
     git clone --depth 1 -b v${MODSECURITY_CONNECTOR_VERSION} https://github.com/owasp-modsecurity/ModSecurity-nginx.git
 
-# --- COMPILE NGINX WITH THE NEW MODULE ---
+# --- COMPILE THE NGINX GEOIP2 MODULE ---
+RUN cd /tmp && \
+    git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git
+
+# --- COMPILE NGINX WITH THE NEW MODULES ---
 RUN cd /tmp && \
     curl -sSL http://nginx.org/download/nginx-1.27.0.tar.gz | tar -xvz && \
     cd nginx-1.27.0 && \
-    ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx/ && \
+    ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx/ --add-dynamic-module=/tmp/ngx_http_geoip2_module && \
     make modules && \
-    cp objs/ngx_http_modsecurity_module.so /etc/nginx/modules/
+    cp objs/ngx_http_modsecurity_module.so /etc/nginx/modules/ && \
+    cp objs/ngx_http_geoip2_module.so /etc/nginx/modules/
 
 # --- SETUP WAF RULES & CONFIGURATION ---
 RUN mkdir -p /etc/nginx/waf && \
@@ -53,10 +59,13 @@ RUN mkdir -p /etc/nginx/waf && \
     mv coreruleset-*/* . && \
     rm -rf coreruleset-* crs.zip
 
-# --- THIS IS THE FIX ---
-# Copy BOTH of our local, correct configuration files into the image
+# Copy our local, correct configuration files into the image
 COPY ./waf/modsecurity.conf /etc/nginx/waf/modsecurity.conf
 COPY ./waf/crs-setup.conf /etc/nginx/waf/crs-setup.conf
+
+# Copy the MaxMind GeoLite2 databases
+COPY ./geoip/GeoLite2-Country.mmdb /usr/share/nginx/geoip/GeoLite2-Country.mmdb
+COPY ./geoip/GeoLite2-City.mmdb /usr/share/nginx/geoip/GeoLite2-City.mmdb
 
 # --- FINAL CONFIGURATION ---
 # Clean up build dependencies and apt cache
@@ -64,15 +73,19 @@ RUN apt-get purge -y git build-essential automake autoconf libtool && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Load the new dynamic module in the main nginx.conf
+# Load the new dynamic modules in the main nginx.conf
 RUN sed -i '1s/^/load_module modules\/ngx_http_modsecurity_module.so;\n/' /etc/nginx/nginx.conf
+RUN sed -i '1s/^/load_module modules\/ngx_http_geoip2_module.so;\n/' /etc/nginx/nginx.conf
+
+# --- FIX: Add logging directives to the main nginx.conf http block ---
+RUN sed -i '/http {/a \\n    access_log \/data\/logs\/nginx\/access.log;\n    error_log \/data\/logs\/nginx\/error.log warn;\n' /etc/nginx/nginx.conf
 
 # Copy our custom Nginx configuration to the conf.d directory
 COPY ./ozfedigital-lb.conf /etc/nginx/conf.d/
 
 # Create the required directories on the host volume
-RUN mkdir -p /data/nginx_proxy_configs /data/nginx_stream_configs /data/certs/dummy /data/logs/nginx /tmp/modsecurity && \
-    chmod -R 777 /tmp/modsecurity
+RUN mkdir -p /data/nginx_proxy_configs /data/nginx_stream_configs /data/certs/dummy /data/logs/nginx /data/waf /data/geoip && \
+    chmod -R 777 /data/waf && chmod -R 777 /data/geoip
 
 # Generate a dummy cert on startup if it doesn't exist
 RUN [ ! -f /data/certs/dummy/dummy.key ] && openssl req -x509 -nodes -newkey rsa:2048 \

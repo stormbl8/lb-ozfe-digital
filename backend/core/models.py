@@ -57,6 +57,7 @@ class GSLBService(Base):
     domain_name = Column(String, unique=True, index=True, nullable=False)
     load_balancing_algorithm = Column(String, default="round_robin")
     datacenters = Column(JSON, nullable=False, default=list)
+    geoip_map = Column(JSON, nullable=True) # NEW FIELD
     services = relationship("Service", back_populates="gslb_service")
     
 # --- UPDATED MODEL: Service ---
@@ -199,10 +200,19 @@ class DatacenterResponse(DatacenterBase):
         from_attributes = True
 
 # --- NEW PYDANTIC MODELS FOR GSLB SERVICE ---
+class GeoIPMapItem(BaseModel):
+    country_code: str = Field(..., min_length=2, max_length=2, description="Two-letter ISO country code (e.g., 'US', 'DE').")
+    datacenter_id: int = Field(..., description="The ID of the datacenter to route traffic to.")
+
+class GeoIPMap(BaseModel):
+    default_datacenter_id: int
+    mappings: List[GeoIPMapItem] = Field(default_factory=list)
+
 class GSLBServiceBase(BaseModel):
     domain_name: str
     load_balancing_algorithm: Literal["round_robin", "geo"] = "round_robin"
     datacenters: List[int]
+    geoip_map: Optional[GeoIPMap] = Field(None, description="GeoIP routing map for 'geo' algorithm.")
 
 class GSLBServiceCreate(GSLBServiceBase):
     pass

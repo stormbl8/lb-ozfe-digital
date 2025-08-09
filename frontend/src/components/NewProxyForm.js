@@ -46,7 +46,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
             setFormData(blankService);
         }
     }, [editingService]);
-    
+
     useEffect(() => {
         const token = localStorage.getItem('access_token');
         const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
@@ -186,8 +186,15 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
 
                     {/* SSL Section */}
                     <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">SSL</Typography></Grid>
-                    <Grid item xs={12}><FormControl fullWidth><InputLabel>SSL Certificate</InputLabel><Select name="certificate_name" value={formData.certificate_name} onChange={handleChange} label="SSL Certificate"><MenuItem value="dummy">None (Dummy Self-Signed)</MenuItem>{certs.map(cert => <MenuItem key={cert} value={cert}>{cert}</MenuItem>)}</Select></FormControl></Grid>
-                    <Grid item xs={12}><FormGroup row><FormControlLabel control={<Checkbox checked={formData.force_ssl} onChange={handleChange} name="force_ssl" />} label="Force SSL" /><FormControlLabel control={<Checkbox checked={formData.http2_support} onChange={handleChange} name="http2_support" />} label="HTTP/2 Support" /><FormControlLabel control={<Checkbox checked={formData.hsts_enabled} onChange={handleChange} name="hsts_enabled" />} label="HSTS Enabled" /><FormControlLabel control={<Checkbox checked={formData.hsts_subdomains} onChange={handleChange} name="hsts_subdomains" disabled={!formData.hsts_enabled} />} label="HSTS Subdomains" /></FormGroup></Grid>
+                    <Grid item xs={12}><FormControl fullWidth><InputLabel>SSL Certificate</InputLabel><Select name="certificate_name" value={formData.certificate_name} onChange={handleChange} label="SSL Certificate"><MenuItem value="dummy">None (Dummy Self-Signed)</MenuItem>{certs.map(cert => <MenuItem key={cert.name} value={cert.name}>{cert.name}</MenuItem>)}</Select></FormControl></Grid>
+                    <Grid item xs={12}>
+                        <FormGroup row>
+                            <FormControlLabel control={<Checkbox checked={formData.force_ssl} onChange={handleChange} name="force_ssl" />} label="Force SSL" />
+                            <FormControlLabel control={<Checkbox checked={formData.http2_support} onChange={handleChange} name="http2_support" />} label="HTTP/2 Support" />
+                            <FormControlLabel control={<Checkbox checked={formData.hsts_enabled} onChange={handleChange} name="hsts_enabled" />} label="HSTS Enabled" />
+                            <FormControlLabel control={<Checkbox checked={formData.hsts_subdomains} onChange={handleChange} name="hsts_subdomains" disabled={!formData.hsts_enabled} />} label="HSTS Subdomains" />
+                        </FormGroup>
+                    </Grid>
                 
                     {/* Access Section */}
                     <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">Access</Typography></Grid>
