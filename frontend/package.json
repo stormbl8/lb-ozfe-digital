@@ -1,7 +1,10 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "loadbalancer-app",
+  "version": "1.0.0",
+  "description": "My awesome application",
   "private": true,
+  "author": "Volkan Oezdemir",
+  "license": "ISC",
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",

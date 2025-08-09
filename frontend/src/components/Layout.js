@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-    Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, 
-    Typography, Divider, Button, AppBar, Grid
+import {
+    Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
+    Typography, Divider, Button, AppBar, Grid, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import axios from 'axios';
+
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import DnsIcon from '@mui/icons-material/Dns';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -31,7 +32,7 @@ const menuItems = [
 ];
 
 const secondaryMenuItems = [
-    { text: 'WAF Rules', icon: <ShieldIcon />, path: '/waf' }, // MOVED AND UPDATED
+    { text: 'WAF Rules', icon: <ShieldIcon />, path: '/waf' },
     { text: 'GSLB Management', icon: <PublicIcon />, path: '/gslb' },
     { text: 'Logs', icon: <DescriptionIcon />, path: '/logs' },
     { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' },
@@ -43,6 +44,8 @@ const Layout = ({ children }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [hasLicense, setHasLicense] = useState(false);
+    const [versionInfo, setVersionInfo] = useState({ version: '', build_date: '', commit: '' });
+    const [aboutOpen, setAboutOpen] = useState(false);
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
@@ -50,16 +53,17 @@ const Layout = ({ children }) => {
         navigate('/login');
     };
 
+    // Fetch logged-in user
     useEffect(() => {
         const fetchUser = async () => {
             const token = localStorage.getItem('access_token');
             if (token) {
                 try {
                     const response = await axios.get(`${API_URL}/auth/users/me`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        headers: { Authorization: `Bearer ${token}` }
                     });
                     setUser(response.data);
-                } catch (error) {
+                } catch {
                     console.error("Failed to fetch user, logging out.");
                     handleLogout();
                 }
@@ -67,24 +71,35 @@ const Layout = ({ children }) => {
         };
         fetchUser();
     }, []);
-    
-    // Fetch license status on every render
+
+    // Fetch license status
     useEffect(() => {
         const fetchLicenseStatus = async () => {
             try {
                 const token = localStorage.getItem('access_token');
                 const response = await axios.get(`${API_URL}/license`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` }
                 });
                 setHasLicense(response.data.user_limit > 1);
-            } catch (error) {
+            } catch {
                 setHasLicense(false);
             }
         };
-        fetchLicenseStatus();
+        if (user) fetchLicenseStatus();
     }, [user]);
 
-    const managementItems = menuItems.concat(secondaryMenuItems);
+    // Fetch API version info
+    useEffect(() => {
+        const fetchVersion = async () => {
+            try {
+                const response = await axios.get(`${API_URL}/version`);
+                setVersionInfo(response.data);
+            } catch (error) {
+                console.error("Failed to fetch API version", error);
+            }
+        };
+        fetchVersion();
+    }, []);
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -92,7 +107,7 @@ const Layout = ({ children }) => {
                 <Toolbar>
                     <Grid container justifyContent="space-between" alignItems="center">
                         <Grid item>
-                            <Typography variant="h6" noWrap component="div">
+                            <Typography variant="h6" noWrap>
                                 Load Balancer UI
                             </Typography>
                         </Grid>
@@ -107,6 +122,7 @@ const Layout = ({ children }) => {
                     </Grid>
                 </Toolbar>
             </AppBar>
+
             <Drawer
                 sx={{
                     width: drawerWidth,
@@ -121,12 +137,13 @@ const Layout = ({ children }) => {
                 variant="permanent"
                 anchor="left"
             >
-                <Toolbar /> 
+                <Toolbar />
                 <div>
                     <List>
                         {menuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
-                                <ListItemButton component={NavLink} to={item.path} disabled={!hasLicense && item.text === 'Proxy Hosts'}>
+                                <ListItemButton component={NavLink} to={item.path}
+                                    disabled={!hasLicense && item.text === 'Proxy Hosts'}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
@@ -135,9 +152,13 @@ const Layout = ({ children }) => {
                     </List>
                     <Divider />
                     <List>
-                         {secondaryMenuItems.map((item) => (
+                        {secondaryMenuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
-                                <ListItemButton component={NavLink} to={item.path} disabled={!hasLicense && ['WAF Rules', 'GSLB Management', 'User Management', 'Server Pools', 'Health Monitors', 'SSL Certificates'].includes(item.text)}>
+                                <ListItemButton component={NavLink} to={item.path}
+                                    disabled={!hasLicense && [
+                                        'WAF Rules', 'GSLB Management', 'User Management',
+                                        'Server Pools', 'Health Monitors', 'SSL Certificates'
+                                    ].includes(item.text)}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
@@ -145,24 +166,42 @@ const Layout = ({ children }) => {
                         ))}
                     </List>
                 </div>
+
+                {/* Version / About Button */}
+                <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Button variant="outlined" fullWidth onClick={() => setAboutOpen(true)}>
+                        Version {versionInfo.version || '...'}
+                    </Button>
+                </Box>
+
                 <Box sx={{ marginTop: 'auto', p: 2 }}>
-                    <Button
-                        variant="contained"
-                        startIcon={<LogoutIcon />}
-                        onClick={handleLogout}
-                        fullWidth
-                    >
+                    <Button variant="contained" startIcon={<LogoutIcon />}
+                        onClick={handleLogout} fullWidth>
                         Logout
                     </Button>
                 </Box>
             </Drawer>
-            <Box
-                component="main"
-                sx={{ flexGrow: 1, bgcolor: 'background.default', p: 3, height: '100vh', overflow: 'auto' }}
-            >
-                <Toolbar /> 
+
+            <Box component="main" sx={{
+                flexGrow: 1, bgcolor: 'background.default', p: 3,
+                height: '100vh', overflow: 'auto'
+            }}>
+                <Toolbar />
                 {children}
             </Box>
+
+            {/* About Dialog */}
+            <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)}>
+                <DialogTitle>About</DialogTitle>
+                <DialogContent dividers>
+                    <Typography>API Version: {versionInfo.version || 'N/A'}</Typography>
+                    <Typography>Build Date: {versionInfo.build_date || 'N/A'}</Typography>
+                    <Typography>Git Commit: {versionInfo.commit || 'N/A'}</Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setAboutOpen(false)}>Close</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
