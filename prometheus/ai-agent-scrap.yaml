@@ -1,0 +1,7 @@
+# Add this job to your Prometheus scrape_configs
+scrape_configs:
+  - job_name: 'ai-agent'
+    static_configs:
+      - targets: ['ai-agent:5000']
+    metrics_path: /metrics
+    scheme: http

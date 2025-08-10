@@ -1,0 +1,24 @@
+{
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Last Anomaly Count",
+      "targets": [
+        { "expr": "ai_agent_anomalies_total", "refId": "A" }
+      ],
+      "id": 1
+    },
+    {
+      "type": "graph",
+      "title": "ai-agent last check epoch",
+      "targets": [
+        { "expr": "ai_agent_last_check_unix", "refId": "A" }
+      ],
+      "id": 2
+    }
+  ],
+  "title": "AI Agent - Anomalies",
+  "schemaVersion": 27,
+  "version": 1
+}
