@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from . import models, security
+from .license_manager import read_license  # <-- ADD THIS LINE
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ async def create_first_user(db: AsyncSession, admin_user: str, admin_email: str,
     users = await get_users(db)
     if not users:
         license_data = read_license()
-        if license_data.user_limit > 1:
+        if license_data.user_limit >= 1:
             logger.info("No users found. Creating default admin user...")
             admin_data = models.AdminUserCreate(
                 username=admin_user,
