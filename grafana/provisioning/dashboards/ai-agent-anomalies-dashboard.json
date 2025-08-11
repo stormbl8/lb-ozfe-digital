@@ -5,7 +5,7 @@
       "type": "stat",
       "title": "Last Anomaly Count",
       "targets": [
-        { "expr": "ai_agent_anomalies_total", "refId": "A" }
+        { "expr": "increase(ai_agent_anomalies_total[5m])", "refId": "A" }
       ],
       "id": 1
     },

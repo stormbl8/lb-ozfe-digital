@@ -5,3 +5,9 @@ scrape_configs:
       - targets: ['ai-agent:5000']
     metrics_path: /metrics
     scheme: http
+
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    metrics_path: /metrics
+    scheme: http

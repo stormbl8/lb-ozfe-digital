@@ -1,0 +1,81 @@
+volumes:
+  app_data:
+  postgres_data:
+
+services:
+  frontend:
+    image: your_registry/lb-ui-frontend:latest
+    container_name: lb-ui-frontend
+    ports:
+      - "88:88"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    image: your_registry/lb-ui-backend:latest
+    container_name: lb-ui-backend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - app_data:/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_URL=${DATABASE_URL}
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+  nginx:
+    image: your_registry/nginx-proxy:latest
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "10000-10100:10000-10100/tcp"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      # Mount the entire app_data volume to /data
+      - app_data:/data
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lb-ui-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - DATABASE_URL=${DATABASE_URL}
+  # ai-agent:
+  #   image: your_registry/ai-agent:latest
+  #   container_name: ai-agent
+  #   environment:
+  #     PROMETHEUS_URL: "http://prometheus:9090"
+  #     API_TOKEN: "replace-with-a-strong-token"
+  #     SCRAPE_INTERVAL_SEC: "30"
+  #     METRIC_QUERY: 'sum(rate(nginx_http_requests_total[1m]))'
+  #     LOOKBACK_MINUTES: "10"
+  #   networks:
+  #     - app-network
+  #   ports:
+  #     - "5000:5000"  # optional: expose to host if you want to browse; keep internal if you prefer
+
+networks:
+  app-network:
+    driver: bridge

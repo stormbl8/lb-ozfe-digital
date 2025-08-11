@@ -1,5 +1,6 @@
 import time
 import threading
+import logging
 from fastapi import FastAPI, Depends, Header, HTTPException, status
 from fastapi.responses import JSONResponse, PlainTextResponse
 from typing import Optional
@@ -9,6 +10,10 @@ from .anomaly import analyze_prometheus
 from .metrics import anomaly_count, last_check_unix, registry
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
+# Configure logging
+logging.basicConfig(filename='/tmp/ai_agent_debug.log', level=logging.DEBUG,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 app = FastAPI(title="ai-agent (passive anomaly detector)")
 
 prom = PromClient()
@@ -16,6 +21,8 @@ prom = PromClient()
 
 def check_token(x_api_token: Optional[str] = Header(None)):
     if settings.api_token:
+        logging.debug(f"Received API Token: '{x_api_token}'")
+        logging.debug(f"Expected API Token: '{settings.api_token}'")
         if x_api_token != settings.api_token:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API token")
     return True
@@ -24,20 +31,21 @@ def check_token(x_api_token: Optional[str] = Header(None)):
 # In-memory latest result
 _latest = {"anomalies": [], "samples": 0, "start": None, "end": None}
 
-
 def poller():
     while True:
         try:
             res = analyze_prometheus(prom, settings.metric_query, settings.lookback_minutes)
+            logging.debug(f"analyze_prometheus returned: {res}")
             # update _latest
             _latest.update(res)
+            logging.debug(f"_latest after update: {_latest}")
             # metrics
             last_check_unix.set(int(time.time()))
             if res.get("anomalies"):
                 anomaly_count.inc(len(res["anomalies"]))
         except Exception as e:
             # keep running; do not crash
-            print("ai-agent poller error:", e)
+            logging.error(f"ai-agent poller error: {e}")
         time.sleep(settings.scrape_interval_sec)
 
 

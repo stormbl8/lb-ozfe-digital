@@ -13,8 +13,8 @@ class PromClient:
         url = f"{self.base}/api/v1/query_range"
         params = {
             "query": expr,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
+            "start": int(start.timestamp()), # Convert to Unix timestamp (seconds)
+            "end": int(end.timestamp()),   # Convert to Unix timestamp (seconds)
             "step": step,
         }
         r = requests.get(url, params=params, timeout=10)

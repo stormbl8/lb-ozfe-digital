@@ -26,7 +26,7 @@ def detect_anomalies_from_values(values: List[float], timestamps: List[datetime]
     anomalies = []
     # rule: abs(z) > 3 => anomaly
     for ts, val, zval in zip(s.index, s.values, z.values):
-        if abs(zval) > 3:
+        if abs(zval) > 1.5:
             anomalies.append({"ts": ts.isoformat(), "value": float(val), "z": float(zval), "method": "zscore"})
     # If no anomalies by zscore, fallback to IsolationForest for subtle cases
     if not anomalies and len(values) >= 6:
