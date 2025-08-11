@@ -17,6 +17,7 @@ import Licenses from './pages/Licenses';
 import LoginPage from './pages/LoginPage';
 import Admin from './pages/Admin';
 import GSLB from './pages/GSLB';
+import ProfilePage from './pages/ProfilePage';
 
 const API_URL = 'http://localhost:8000/api';
 
@@ -111,7 +112,8 @@ function App() {
           <Route path="/waf" element={<ProtectedRoute><Layout><WAFRules /></Layout></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute><Layout><Logs /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-          <Route path="/gslb" element={<ProtectedRoute><AdminRoute><Layout><GSLB /></Layout></AdminRoute></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Layout><ProfilePage /></Layout></ProtectedRoute>} />
+          <Route path="/gslb" element={<ProtectedRoute><Layout><GSLB /></Layout></ProtectedRoute>} />
           <Route 
             path="/admin" 
             element={<ProtectedRoute><AdminRoute><Layout><Admin /></Layout></AdminRoute></ProtectedRoute>} 

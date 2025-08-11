@@ -34,7 +34,7 @@ const HealthStatusIndicator = ({ service, pool, healthStatus }) => {
     return <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', color: '#bdc3c7' }}><span style={{ color: '#bdc3c7', marginRight: '8px' }}>●</span> Unknown</Typography>;
 };
 
-const Services = () => {
+const Services = ({ licenseType }) => {
   const [services, setServices] = useState([]);
   const [pools, setPools] = useState([]);
   const [datacenters, setDatacenters] = useState([]);
@@ -51,39 +51,58 @@ const Services = () => {
       const token = localStorage.getItem('access_token');
       const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
       
-      const [poolsRes, userRes, datacentersRes, healthRes] = await Promise.all([
+      // Basic data needed for all license types
+      const [poolsRes, userRes, healthRes] = await Promise.all([
           axios.get(`${API_URL}/pools`, authHeaders),
           axios.get(`${API_URL}/auth/users/me`, authHeaders),
-          axios.get(`${API_URL}/gslb/datacenters`, authHeaders),
           axios.get(`${API_URL}/health`, authHeaders)
       ]);
       
       setPools(poolsRes.data);
       setIsAdmin(userRes.data.role === 'admin');
-      setDatacenters(datacentersRes.data);
       setHealthStatus(healthRes.data);
-      
-      const dcIdToFetch = selectedDatacenter || (datacentersRes.data.length > 0 ? datacentersRes.data[0].id : null);
-      if (dcIdToFetch) {
-        const servicesRes = await axios.get(`${API_URL}/services?datacenter_id=${dcIdToFetch}`, authHeaders);
-        setServices(servicesRes.data);
-        if (!selectedDatacenter) {
-          setSelectedDatacenter(dcIdToFetch);
-        }
+
+      let fetchedDatacenters = [];
+      if (licenseType === 'full') {
+        const datacentersRes = await axios.get(`${API_URL}/gslb/datacenters`, authHeaders);
+        fetchedDatacenters = datacentersRes.data;
+        setDatacenters(fetchedDatacenters);
       } else {
-        setServices([]);
+        // For trial/none licenses, we don't need GSLB datacenters
+        setDatacenters([]);
+      }
+      
+      const dcIdToFetch = selectedDatacenter || (fetchedDatacenters.length > 0 ? fetchedDatacenters[0].id : null);
+      
+      // If GSLB is not supported, we still need a datacenter concept for services.
+      // We'll default to a placeholder if no datacenters are fetched.
+      // This assumes services are not dependent on a GSLB datacenter in a trial.
+      // A better long-term solution might be a default datacenter from another API endpoint.
+      const servicesDcId = dcIdToFetch || 1; // Fallback to 1 if no GSLB dcs
+
+      const servicesRes = await axios.get(`${API_URL}/services?datacenter_id=${servicesDcId}`, authHeaders);
+      setServices(servicesRes.data);
+
+      if (!selectedDatacenter && dcIdToFetch) {
+        setSelectedDatacenter(dcIdToFetch);
       }
 
       setError('');
     } catch (err) {
-      setError('Failed to fetch services, pools, or datacenters.');
+        if (err.response && err.response.status === 403) {
+            setError('Your license does not permit fetching GSLB datacenters. Some features may be disabled.');
+        } else {
+            setError('Failed to fetch required service data.');
+        }
     } finally {
       setLoading(false);
     }
-  }, [selectedDatacenter]);
+  }, [selectedDatacenter, licenseType]);
 
   useEffect(() => {
-    fetchServicesAndData();
+    if (licenseType) { // Wait until licenseType prop is available
+        fetchServicesAndData();
+    }
     const interval = setInterval(async () => {
       try {
         const healthRes = await axios.get(`${API_URL}/health`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } });
@@ -93,7 +112,7 @@ const Services = () => {
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchServicesAndData]);
+  }, [fetchServicesAndData, licenseType]);
   
   const handleCloseForm = () => {
     setEditingService(null);
@@ -140,25 +159,38 @@ const Services = () => {
           editingService={editingService}
           onFinished={handleCloseForm}
           apiUrl={API_URL}
+          licenseType={licenseType}
         />
       </Modal>
       
       <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <FormControl sx={{ minWidth: 200 }}>
-                <InputLabel>Datacenter</InputLabel>
-                <Select
-                    value={selectedDatacenter}
-                    label="Datacenter"
-                    onChange={(e) => setSelectedDatacenter(e.target.value)}
-                >
-                    {datacenters.map(dc => (
-                        <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
+            {licenseType === 'full' && datacenters.length > 0 && (
+                <FormControl sx={{ minWidth: 200 }}>
+                    <InputLabel>Datacenter</InputLabel>
+                    <Select
+                        value={selectedDatacenter}
+                        label="Datacenter"
+                        onChange={(e) => setSelectedDatacenter(e.target.value)}
+                    >
+                        {datacenters.map(dc => (
+                            <MenuItem key={dc.id} value={dc.id}>{dc.name} ({dc.location})</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
             {isAdmin && (
-                <Button variant="contained" onClick={() => setEditingService({})}>Add Proxy Host</Button>
+                <Tooltip title={licenseType === 'trial' && services.length >= 1 ? "Trial license only allows 1 proxy host" : ""}>
+                    <span>
+                        <Button 
+                            variant="contained" 
+                            onClick={() => setEditingService({})}
+                            disabled={(licenseType === 'trial' && services.length >= 1) || !isAdmin}
+                        >
+                            Add Proxy Host
+                        </Button>
+                    </span>
+                </Tooltip>
             )}
         </Box>
         
@@ -171,7 +203,7 @@ const Services = () => {
                 <TableCell sx={{width: '1%'}}>Enabled</TableCell>
                 <TableCell>Source</TableCell>
                 <TableCell>Assigned Pool</TableCell>
-                <TableCell>Datacenter</TableCell>
+                {licenseType === 'full' && <TableCell>Datacenter</TableCell>}
                 <TableCell>Extras</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -179,7 +211,7 @@ const Services = () => {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={licenseType === 'full' ? 7 : 6} align="center"><CircularProgress /></TableCell></TableRow>
               ) : services.length > 0 ? (
                 services.map((service) => {
                   const pool = getPoolById(service.pool_id);
@@ -199,15 +231,17 @@ const Services = () => {
                         <TableCell>
                             {service.service_type === 'http' 
                              ? <Link component={RouterLink} to={`/services/${service.id}`} sx={{ fontWeight: '500' }}>{service.domain_name}</Link>
-                             : <Typography variant="body2" color="textSecondary">{`${service.service_type.toUpperCase()} on Port ${service.listen_port}`}</Typography>
+                             : <Typography variant="body2" color="textSecondary">`${service.service_type.toUpperCase()} on Port ${service.listen_port}`</Typography>
                             }
                         </TableCell>
                         <TableCell>
                             {pool ? pool.name : 'Not Assigned'}
                         </TableCell>
-                        <TableCell>
-                            {datacenters.find(dc => dc.id === service.datacenter_id)?.name || 'N/A'}
-                        </TableCell>
+                        {licenseType === 'full' && (
+                            <TableCell>
+                                {datacenters.find(dc => dc.id === service.datacenter_id)?.name || 'N/A'}
+                            </TableCell>
+                        )}
                         <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {service.session_persistence && (
@@ -246,7 +280,7 @@ const Services = () => {
                   )
                 })
               ) : (
-                <TableRow><TableCell colSpan={7} align="center">No hosts configured yet for this datacenter.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={licenseType === 'full' ? 7 : 6} align="center">No hosts configured yet for this datacenter.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

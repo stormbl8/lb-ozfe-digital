@@ -15,7 +15,7 @@ import Modal from '../components/Modal';
 
 const API_URL = 'http://localhost:8000/api';
 
-const GSLB = () => {
+const GSLB = ({ licenseType }) => {
     const [datacenters, setDatacenters] = useState([]);
     const [gslbServices, setGslbServices] = useState([]);
     const [editingGslbService, setEditingGslbService] = useState(null);
@@ -42,7 +42,7 @@ const GSLB = () => {
             setIsAdmin(userRes.data.role === 'admin');
             setError('');
         } catch (err) {
-            setError('Failed to fetch GSLB data. Ensure you have admin privileges.');
+            setError('Failed to fetch GSLB data. Some features may be disabled based on your license.');
         } finally {
             setLoading(false);
         }
@@ -65,7 +65,6 @@ const GSLB = () => {
     const handleOpenEditModal = (service) => {
         setEditingGslbService({
             ...service,
-            // Ensure geoip_map is initialized when opening the modal for editing
             geoip_map: service.load_balancing_algorithm === 'geo' && !service.geoip_map
                 ? { default_datacenter_id: null, mappings: [] }
                 : service.geoip_map
@@ -186,15 +185,17 @@ const GSLB = () => {
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             
             <Box sx={{ mb: 3 }}>
-                <Tooltip title="Sync all datacenter configurations. This will regenerate all NGINX configs on every datacenter.">
-                    <Button
-                        variant="contained"
-                        startIcon={<SyncIcon />}
-                        onClick={handleSyncAll}
-                        disabled={!isAdmin}
-                    >
-                        Sync All Datacenters
-                    </Button>
+                <Tooltip title="Sync all datacenter configurations. Requires a full license.">
+                    <span>
+                        <Button
+                            variant="contained"
+                            startIcon={<SyncIcon />}
+                            onClick={handleSyncAll}
+                            disabled={!isAdmin || licenseType !== 'full'}
+                        >
+                            Sync All Datacenters
+                        </Button>
+                    </span>
                 </Tooltip>
             </Box>
 
@@ -223,9 +224,9 @@ const GSLB = () => {
                                         <TableCell>{dc.nginx_ip}</TableCell>
                                         <TableCell>{dc.api_url}</TableCell>
                                         <TableCell align="right">
-                                            <Tooltip title="Delete">
+                                            <Tooltip title="Deleting datacenters requires a full license.">
                                                 <span>
-                                                    <IconButton onClick={() => handleDeleteDatacenter(dc.id, dc.name)} disabled={!isAdmin}>
+                                                    <IconButton onClick={() => handleDeleteDatacenter(dc.id, dc.name)} disabled={!isAdmin || licenseType !== 'full'}>
                                                         <DeleteIcon color="error" />
                                                     </IconButton>
                                                 </span>
@@ -241,13 +242,19 @@ const GSLB = () => {
                 </TableContainer>
                 
                 {isAdmin && (
-                    <Box component="form" onSubmit={handleCreateDatacenter} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <TextField size="small" label="Name" name="name" value={newDatacenter.name} onChange={handleDatacenterInputChange} required />
-                        <TextField size="small" label="Location" name="location" value={newDatacenter.location} onChange={handleDatacenterInputChange} />
-                        <TextField size="small" label="NGINX IP" name="nginx_ip" value={newDatacenter.nginx_ip} onChange={handleDatacenterInputChange} required />
-                        <TextField size="small" label="API URL" name="api_url" value={newDatacenter.api_url} onChange={handleDatacenterInputChange} required />
-                        <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add Datacenter</Button>
-                    </Box>
+                    <Tooltip title={licenseType === 'trial' && datacenters.length >= 1 ? "Trial license only allows 1 datacenter" : ""}>
+                        <span>
+                            <Box component="form" onSubmit={handleCreateDatacenter} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                                <TextField size="small" label="Name" name="name" value={newDatacenter.name} onChange={handleDatacenterInputChange} required />
+                                <TextField size="small" label="Location" name="location" value={newDatacenter.location} onChange={handleDatacenterInputChange} />
+                                <TextField size="small" label="NGINX IP" name="nginx_ip" value={newDatacenter.nginx_ip} onChange={handleDatacenterInputChange} required />
+                                <TextField size="small" label="API URL" name="api_url" value={newDatacenter.api_url} onChange={handleDatacenterInputChange} required />
+                                <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={(licenseType === 'trial' && datacenters.length >= 1)}>
+                                    Add Datacenter
+                                </Button>
+                            </Box>
+                        </span>
+                    </Tooltip>
                 )}
             </Paper>
 
@@ -276,16 +283,16 @@ const GSLB = () => {
                                             {gslb.datacenters.map(id => datacenters.find(dc => dc.id === id)?.name || 'N/A').join(', ')}
                                         </TableCell>
                                         <TableCell align="right">
-                                            <Tooltip title="Edit">
+                                            <Tooltip title="Editing requires a full license.">
                                                 <span>
-                                                    <IconButton onClick={() => handleOpenEditModal(gslb)} disabled={!isAdmin}>
+                                                    <IconButton onClick={() => handleOpenEditModal(gslb)} disabled={!isAdmin || licenseType !== 'full'}>
                                                         <EditIcon />
                                                     </IconButton>
                                                 </span>
                                             </Tooltip>
-                                            <Tooltip title="Delete">
+                                            <Tooltip title="Deleting requires a full license.">
                                                 <span>
-                                                    <IconButton onClick={() => handleDeleteGslbService(gslb.id, gslb.domain_name)} disabled={!isAdmin}>
+                                                    <IconButton onClick={() => handleDeleteGslbService(gslb.id, gslb.domain_name)} disabled={!isAdmin || licenseType !== 'full'}>
                                                         <DeleteIcon color="error" />
                                                     </IconButton>
                                                 </span>
@@ -301,36 +308,42 @@ const GSLB = () => {
                 </TableContainer>
                 
                 {isAdmin && (
-                    <Box component="form" onSubmit={handleCreateGslbService} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <TextField size="small" label="Domain Name" name="domain_name" value={newGslbService.domain_name} onChange={handleGslbServiceInputChange} required />
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
-                            <InputLabel>Algorithm</InputLabel>
-                            <Select
-                                name="load_balancing_algorithm"
-                                value={newGslbService.load_balancing_algorithm}
-                                onChange={handleGslbServiceInputChange}
-                                label="Algorithm"
-                            >
-                                <MenuItem value="round_robin">Round Robin</MenuItem>
-                                <MenuItem value="geo">Geo-based</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <FormControl size="small" fullWidth>
-                            <InputLabel>Datacenters</InputLabel>
-                            <Select
-                                name="datacenters"
-                                multiple
-                                value={newGslbService.datacenters}
-                                onChange={(e) => setNewGslbService(prev => ({ ...prev, datacenters: e.target.value }))}
-                                label="Datacenters"
-                            >
-                                {datacenters.map(dc => (
-                                    <MenuItem key={dc.id} value={dc.id}>{dc.name}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Button type="submit" variant="contained" startIcon={<AddIcon />}>Add GSLB Service</Button>
-                    </Box>
+                    <Tooltip title="Creating GSLB services requires a full license.">
+                        <span>
+                            <Box component="form" onSubmit={handleCreateGslbService} sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                                <TextField size="small" label="Domain Name" name="domain_name" value={newGslbService.domain_name} onChange={handleGslbServiceInputChange} required />
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Algorithm</InputLabel>
+                                    <Select
+                                        name="load_balancing_algorithm"
+                                        value={newGslbService.load_balancing_algorithm}
+                                        onChange={handleGslbServiceInputChange}
+                                        label="Algorithm"
+                                    >
+                                        <MenuItem value="round_robin">Round Robin</MenuItem>
+                                        <MenuItem value="geo">Geo-based</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" fullWidth>
+                                    <InputLabel>Datacenters</InputLabel>
+                                    <Select
+                                        name="datacenters"
+                                        multiple
+                                        value={newGslbService.datacenters}
+                                        onChange={(e) => setNewGslbService(prev => ({ ...prev, datacenters: e.target.value }))}
+                                        label="Datacenters"
+                                    >
+                                        {datacenters.map(dc => (
+                                            <MenuItem key={dc.id} value={dc.id}>{dc.name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={licenseType !== 'full'}>
+                                    Add GSLB Service
+                                </Button>
+                            </Box>
+                        </span>
+                    </Tooltip>
                 )}
             </Paper>
 

@@ -133,6 +133,11 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
+# NEW: Password change model
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=6, description="New password must be at least 6 characters.")
+
 class BackendServer(BaseModel):
     host: str
     port: int
@@ -274,6 +279,7 @@ class AppSettings(BaseModel):
 
 
 class LicenseDetails(BaseModel):
+    license_type: Literal["trial", "full", "none"] = "none"
     user_limit: int = 1
     allowed_roles: List[str] = ["read-only"]
     admin_limit: int = 0

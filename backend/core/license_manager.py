@@ -21,6 +21,9 @@ def read_license() -> LicenseDetails:
     try:
         with open(LICENSE_FILE, 'r') as f:
             data = json.load(f)
+            # For backward compatibility, if a license file exists but has no type, it's a "full" license.
+            if 'license_type' not in data:
+                data['license_type'] = 'full'
             LICENSE_CACHE = LicenseDetails(**data)
             return LICENSE_CACHE
     except (json.JSONDecodeError, FileNotFoundError):
@@ -33,4 +36,8 @@ def save_license(license_data: Dict[str, Any]):
     os.makedirs(os.path.dirname(LICENSE_FILE), exist_ok=True)
     with open(LICENSE_FILE, 'w') as f:
         json.dump(license_data, f, indent=2)
+
+    # For backward compatibility, if a license is saved without a type, it's a "full" license.
+    if 'license_type' not in license_data:
+        license_data['license_type'] = 'full'
     LICENSE_CACHE = LicenseDetails(**license_data)

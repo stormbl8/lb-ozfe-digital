@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from core import crud, models, security
 from core.database import get_db
 from core.license_manager import read_license, save_license
+from core.models import PasswordChange # Import the new model
 
 router = APIRouter(
     prefix="/api/auth",
@@ -38,6 +39,25 @@ async def read_users_me(current_user: Annotated[models.User, Depends(security.ge
     """
     return current_user
 
+@router.put("/users/me/password", status_code=status.HTTP_200_OK)
+async def change_my_password(
+    password_data: PasswordChange,
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allows a logged-in user to change their own password.
+    """
+    if not security.verify_password(password_data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid current password")
+
+    success = await crud.update_user_password(db, user_id=current_user.id, current_password=password_data.current_password, new_password=password_data.new_password)
+    
+    if not success:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Password update failed")
+
+    return {"message": "Password updated successfully"}
+
 @router.get("/users", response_model=List[models.UserResponse])
 async def read_users(
     db: AsyncSession = Depends(get_db),
@@ -54,7 +74,7 @@ async def create_new_user(
     db: AsyncSession = Depends(get_db),
     admin_user: models.User = Depends(security.get_current_admin_user),
     # Use the new dependency to enforce the license
-    license_check: None = Depends(security.enforce_active_license)
+    license_check: None = Depends(security.enforce_full_license)
 ):
     """
     Create a new user with a specific role. Admin only. Requires a valid license.

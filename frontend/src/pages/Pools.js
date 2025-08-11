@@ -11,7 +11,7 @@ import Modal from '../components/Modal';
 
 const API_URL = 'http://localhost:8000/api';
 
-const Pools = () => {
+const Pools = ({ licenseType }) => {
     const [pools, setPools] = useState([]);
     const [monitors, setMonitors] = useState([]); // <-- Add state for monitors
     const [loading, setLoading] = useState(true);
@@ -86,7 +86,17 @@ const Pools = () => {
             <Paper>
                 {isAdmin && (
                     <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button variant="contained" onClick={() => setEditingPool({})}>Add Server Pool</Button>
+                        <Tooltip title={licenseType === 'trial' && pools.length >= 1 ? "Trial license only allows 1 pool" : ""}>
+                            <span>
+                                <Button 
+                                    variant="contained" 
+                                    onClick={() => setEditingPool({})}
+                                    disabled={(licenseType === 'trial' && pools.length >= 1) || !isAdmin}
+                                >
+                                    Add Server Pool
+                                </Button>
+                            </span>
+                        </Tooltip>
                     </Box>
                 )}
                 {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}

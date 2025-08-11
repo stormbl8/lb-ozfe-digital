@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import crud, models
 from core.database import get_db
 from core.nginx_manager import regenerate_configs_for_datacenter
-from core.security import get_current_admin_user, get_current_user, enforce_active_license
+from core.security import (
+    get_current_admin_user, get_current_user, 
+    enforce_trial_or_full_license, check_pool_limit
+)
 
 router = APIRouter(
     prefix="/api/pools",
@@ -15,7 +18,8 @@ router = APIRouter(
 @router.get("", response_model=List[models.PoolResponse])
 async def list_pools(
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Retrieve all server pools.
@@ -27,8 +31,8 @@ async def add_new_pool(
     pool_data: models.PoolCreate,
     db: AsyncSession = Depends(get_db),
     admin_user: models.User = Depends(get_current_admin_user),
-    # Enforce license for management actions
-    license_check: None = Depends(enforce_active_license)
+    license_check: None = Depends(enforce_trial_or_full_license),
+    limit_check: None = Depends(check_pool_limit)
 ):
     """
     Add a new server pool.
@@ -50,7 +54,8 @@ async def update_pool(
     pool_id: int,
     pool_data: models.PoolCreate,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    admin_user: models.User = Depends(get_current_admin_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Update an existing server pool.
@@ -68,7 +73,8 @@ async def update_pool(
 async def delete_pool(
     pool_id: int,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    admin_user: models.User = Depends(get_current_admin_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Delete a server pool.

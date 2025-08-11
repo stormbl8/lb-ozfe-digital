@@ -6,7 +6,10 @@ from sqlalchemy.orm import joinedload
 from core import crud, models
 from core.database import get_db
 from core.nginx_manager import regenerate_configs_for_datacenter
-from core.security import get_current_admin_user, get_current_user, enforce_active_license
+from core.security import (
+    get_current_admin_user, get_current_user, 
+    enforce_trial_or_full_license, check_service_limit
+)
 
 router = APIRouter(
     prefix="/api/services",
@@ -17,7 +20,8 @@ router = APIRouter(
 async def list_services(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
-    datacenter_id: Optional[int] = None
+    datacenter_id: Optional[int] = None,
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Retrieve all services. Accessible by any authenticated user.
@@ -28,7 +32,8 @@ async def list_services(
 async def get_service(
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Retrieve a single service by its ID.
@@ -43,8 +48,8 @@ async def add_new_service(
     service_data: models.ServiceCreate,
     db: AsyncSession = Depends(get_db),
     admin_user: models.User = Depends(get_current_admin_user),
-    # Enforce license for management actions
-    license_check: None = Depends(enforce_active_license)
+    license_check: None = Depends(enforce_trial_or_full_license),
+    limit_check: None = Depends(check_service_limit)
 ):
     """
     Add a new service. Admin only.
@@ -59,7 +64,8 @@ async def update_service(
     service_id: int,
     service_data: models.ServiceCreate,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    admin_user: models.User = Depends(get_current_admin_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Update an existing service. Admin only.
@@ -77,7 +83,8 @@ async def update_service(
 async def delete_service(
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    admin_user: models.User = Depends(get_current_admin_user)
+    admin_user: models.User = Depends(get_current_admin_user),
+    license_check: None = Depends(enforce_trial_or_full_license)
 ):
     """
     Delete a service. Admin only.

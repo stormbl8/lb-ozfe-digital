@@ -10,6 +10,7 @@ role = os.environ.get("LICENSE_ROLE")
 admin_limit = int(os.environ.get("ADMIN_LIMIT", "0"))
 read_only_limit = int(os.environ.get("READ_ONLY_LIMIT", "0"))
 allowed_roles_str = os.environ.get("ALLOWED_ROLES", "read-only")
+license_type = os.environ.get("LICENSE_TYPE", "full")
 output_dir = os.environ.get("OUTPUT_DIR")
 
 if not all([SECRET_KEY, username, role, output_dir]):
@@ -24,7 +25,8 @@ payload = {
     "user_limit": admin_limit + read_only_limit,
     "admin_limit": admin_limit,
     "read_only_limit": read_only_limit,
-    "allowed_roles": [r.strip() for r in allowed_roles_str.split(',')]
+    "allowed_roles": [r.strip() for r in allowed_roles_str.split(',')],
+    "license_type": license_type
 }
 
 # Encode the JWT

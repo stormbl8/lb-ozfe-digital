@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
+import { 
     Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-    Typography, Divider, Button, AppBar, Grid, Dialog, DialogTitle, DialogContent, DialogActions
+    Typography, Divider, Button, AppBar, Grid, Dialog, DialogTitle, DialogContent, DialogActions,
+    IconButton, Menu, MenuItem
 } from '@mui/material';
 import axios from 'axios';
 
@@ -43,14 +44,29 @@ const secondaryMenuItems = [
 const Layout = ({ children }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
-    const [hasLicense, setHasLicense] = useState(false);
+    const [licenseType, setLicenseType] = useState('none');
     const [versionInfo, setVersionInfo] = useState({ version: '', build_date: '', commit: '' });
     const [aboutOpen, setAboutOpen] = useState(false);
+    const [anchorEl, setAnchorEl] = useState(null);
+
+    const handleMenu = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleProfileClick = () => {
+        navigate('/profile');
+        handleClose();
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
         setUser(null);
         navigate('/login');
+        handleClose();
     };
 
     // Fetch logged-in user
@@ -80,9 +96,9 @@ const Layout = ({ children }) => {
                 const response = await axios.get(`${API_URL}/license`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setHasLicense(response.data.user_limit > 1);
+                setLicenseType(response.data.license_type);
             } catch {
-                setHasLicense(false);
+                setLicenseType('none');
             }
         };
         if (user) fetchLicenseStatus();
@@ -113,11 +129,37 @@ const Layout = ({ children }) => {
                         </Grid>
                         <Grid item>
                             {user && (
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <IconButton
+                                    size="large"
+                                    edge="end"
+                                    aria-label="account of current user"
+                                    aria-controls="menu-appbar"
+                                    aria-haspopup="true"
+                                    onClick={handleMenu}
+                                    color="inherit"
+                                >
                                     <AccountCircleIcon sx={{ mr: 1 }} />
                                     <Typography>{user.username} ({user.role})</Typography>
-                                </Box>
+                                </IconButton>
                             )}
+                            <Menu
+                                id="menu-appbar"
+                                anchorEl={anchorEl}
+                                anchorOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'right',
+                                }}
+                                keepMounted
+                                transformOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'right',
+                                }}
+                                open={Boolean(anchorEl)}
+                                onClose={handleClose}
+                            >
+                                <MenuItem onClick={handleProfileClick}>Profile</MenuItem>
+                                <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                            </Menu>
                         </Grid>
                     </Grid>
                 </Toolbar>
@@ -143,7 +185,7 @@ const Layout = ({ children }) => {
                         {menuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
                                 <ListItemButton component={NavLink} to={item.path}
-                                    disabled={!hasLicense && item.text === 'Proxy Hosts'}>
+                                    disabled={licenseType === 'none' && (item.text === 'Proxy Hosts' || item.text === 'Server Pools')}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
@@ -155,10 +197,9 @@ const Layout = ({ children }) => {
                         {secondaryMenuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
                                 <ListItemButton component={NavLink} to={item.path}
-                                    disabled={!hasLicense && [
-                                        'WAF Rules', 'GSLB Management', 'User Management',
-                                        'Server Pools', 'Health Monitors', 'SSL Certificates'
-                                    ].includes(item.text)}>
+                                    disabled={((licenseType === 'none' || licenseType === 'trial') && [
+                                        'WAF Rules', 'User Management'
+                                    ].includes(item.text))}>
                                     <ListItemIcon>{item.icon}</ListItemIcon>
                                     <ListItemText primary={item.text} />
                                 </ListItemButton>
@@ -174,12 +215,7 @@ const Layout = ({ children }) => {
                     </Button>
                 </Box>
 
-                <Box sx={{ marginTop: 'auto', p: 2 }}>
-                    <Button variant="contained" startIcon={<LogoutIcon />}
-                        onClick={handleLogout} fullWidth>
-                        Logout
-                    </Button>
-                </Box>
+                {/* Removed old Logout Button */}
             </Drawer>
 
             <Box component="main" sx={{
@@ -187,7 +223,7 @@ const Layout = ({ children }) => {
                 height: '100vh', overflow: 'auto'
             }}>
                 <Toolbar />
-                {children}
+                {React.cloneElement(children, { licenseType: licenseType })}
             </Box>
 
             {/* About Dialog */}

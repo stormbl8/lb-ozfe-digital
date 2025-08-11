@@ -6,7 +6,7 @@ import {
     Checkbox, FormControlLabel, FormGroup, Grid, Typography, Divider, Alert
 } from '@mui/material';
 
-const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
+const NewProxyForm = ({ editingService, onFinished, apiUrl, licenseType }) => {
     const blankService = {
         service_type: 'http',
         listen_port: '',
@@ -53,25 +53,31 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
         
         const fetchData = async () => {
             try {
-                const [certsRes, poolsRes, datacentersRes, gslbServicesRes, wafRulesetsRes] = await Promise.all([
+                const [certsRes, poolsRes, datacentersRes, gslbServicesRes] = await Promise.all([
                     axios.get(`${apiUrl}/certificates`, authHeaders),
                     axios.get(`${apiUrl}/pools`, authHeaders),
                     axios.get(`${apiUrl}/gslb/datacenters`, authHeaders),
                     axios.get(`${apiUrl}/gslb/services`, authHeaders),
-                    axios.get(`${apiUrl}/waf/rulesets`, authHeaders),
                 ]);
                 setCerts(certsRes.data);
                 setPools(poolsRes.data);
                 setDatacenters(datacentersRes.data);
                 setGslbServices(gslbServicesRes.data);
-                setWafRulesets(wafRulesetsRes.data);
+
+                if (licenseType === 'full') {
+                    const wafRulesetsRes = await axios.get(`${apiUrl}/waf/rulesets`, authHeaders);
+                    setWafRulesets(wafRulesetsRes.data);
+                } else {
+                    setWafRulesets([]); // No WAF rulesets for non-full licenses
+                }
+
             } catch (error) {
                 toast.error('Failed to fetch required data.');
                 console.error(error);
             }
         };
         fetchData();
-    }, [apiUrl]);
+    }, [apiUrl, licenseType]); // Added licenseType to dependency array
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -174,7 +180,7 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl }) => {
                         </FormGroup>
                     </Grid>
                     <Grid item xs={12}>
-                        <FormControl fullWidth disabled={!formData.waf_enabled}>
+                        <FormControl fullWidth disabled={!formData.waf_enabled || licenseType !== 'full'}> {/* Disable if WAF not enabled or not full license */}
                             <InputLabel>WAF Ruleset</InputLabel>
                             <Select name="waf_ruleset_id" value={formData.waf_ruleset_id || ''} onChange={handleChange} label="WAF Ruleset">
                                 <MenuItem value=""><em>Default Ruleset</em></MenuItem>

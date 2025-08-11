@@ -42,6 +42,16 @@ while true; do
   fi
 done
 
+# Prompt for license type with validation
+while true; do
+  read -p "Enter the license type (trial or full): " license_type
+  if [ "$license_type" == "trial" ] || [ "$license_type" == "full" ]; then
+    break
+  else
+    echo "Invalid type. Please enter 'trial' or 'full'."
+  fi
+done
+
 # Prompt for separate user limits
 read -p "Enter the maximum number of ADMIN users allowed by this license: " admin_limit
 if ! [[ "$admin_limit" =~ ^[0-9]+$ ]]; then
@@ -55,13 +65,18 @@ if ! [[ "$read_only_limit" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# Prompt for allowed roles
-read -p "Enter allowed roles, comma-separated (e.g., admin,read-only): " allowed_roles
-if [ -z "$allowed_roles" ]; then
-  echo "Error: Allowed roles cannot be empty."
-  exit 1
+# Automatically determine allowed roles based on limits
+allowed_roles=""
+if [ "$admin_limit" -gt 0 ]; then
+  allowed_roles="admin"
 fi
-
+if [ "$read_only_limit" -gt 0 ]; then
+  if [ -n "$allowed_roles" ]; then
+    allowed_roles="$allowed_roles,read-only"
+  else
+    allowed_roles="read-only"
+  fi
+fi
 
 # Create the licenses directory if it doesn't exist on the host
 mkdir -p "$LICENSE_DIR"
@@ -76,6 +91,7 @@ docker run --rm \
   -e "SECRET_KEY=$SECRET_KEY" \
   -e "LICENSE_USER=$username" \
   -e "LICENSE_ROLE=$role" \
+  -e "LICENSE_TYPE=$license_type" \
   -e "ADMIN_LIMIT=$admin_limit" \
   -e "READ_ONLY_LIMIT=$read_only_limit" \
   -e "ALLOWED_ROLES=$allowed_roles" \

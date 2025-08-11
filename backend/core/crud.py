@@ -69,6 +69,19 @@ async def update_user(db: AsyncSession, db_user: models.User, user_in: models.Us
     await db.refresh(db_user)
     return db_user
 
+async def update_user_password(db: AsyncSession, user_id: int, current_password: str, new_password: str) -> bool:
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return False
+
+    if not security.verify_password(current_password, db_user.hashed_password):
+        return False
+
+    db_user.hashed_password = security.get_password_hash(new_password)
+    await db.commit()
+    await db.refresh(db_user)
+    return True
+
 async def delete_user(db: AsyncSession, db_user: models.User):
     await db.delete(db_user)
     await db.commit()
