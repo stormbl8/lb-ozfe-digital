@@ -18,7 +18,7 @@ import LoginPage from './pages/LoginPage';
 import Admin from './pages/Admin';
 import GSLB from './pages/GSLB';
 import ProfilePage from './pages/ProfilePage';
-import AIConfig from './pages/AIConfig';
+
 
 const API_URL = 'http://localhost:8000/api';
 
@@ -145,7 +145,7 @@ function App() {
           <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Layout><ProfilePage /></Layout></ProtectedRoute>} />
           <Route path="/gslb" element={<ProtectedRoute><Layout><GSLB /></Layout></ProtectedRoute>} />
-          <Route path="/ai-config" element={<ProtectedRoute><AdminRoute><LicenseRoute><Layout><AIConfig /></Layout></LicenseRoute></AdminRoute></ProtectedRoute>} />
+          
           <Route 
             path="/admin" 
             element={<ProtectedRoute><AdminRoute><Layout><Admin /></Layout></AdminRoute></ProtectedRoute>} 
