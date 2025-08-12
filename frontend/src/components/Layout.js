@@ -20,6 +20,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import PublicIcon from '@mui/icons-material/Public';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 const drawerWidth = 260;
 const API_URL = 'http://localhost:8000/api';
@@ -39,6 +40,7 @@ const secondaryMenuItems = [
     { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' },
     { text: 'User Management', icon: <SupervisedUserCircleIcon />, path: '/admin' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'AI Settings', icon: <PsychologyIcon />, path: '/ai-config' },
 ];
 
 const Layout = ({ children }) => {

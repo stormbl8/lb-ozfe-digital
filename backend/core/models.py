@@ -1,10 +1,10 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean,
-    Text, ForeignKey, JSON
+    Text, ForeignKey, JSON, Float
 )
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict
 
 from .database import Base
 
@@ -284,5 +284,37 @@ class LicenseDetails(BaseModel):
     allowed_roles: List[str] = ["read-only"]
     admin_limit: int = 0
     read_only_limit: int = 0
+    class Config:
+        from_attributes = True
+
+# --- NEW MODEL: AISettings (SQLAlchemy ORM Model) ---
+class AISettings(Base):
+    __tablename__ = "ai_settings"
+    id = Column(Integer, primary_key=True, index=True, default=1) # Assuming a single row for settings
+    alert_enabled = Column(Boolean, default=False)
+    alert_channels = Column(JSON, nullable=False, default=list)
+    slack_webhook_url = Column(String, nullable=True)
+    email_recipients = Column(JSON, nullable=False, default=list)
+    alert_threshold_zscore = Column(Float, default=2.0)
+    alert_cooldown_minutes = Column(Integer, default=5)
+    action_enabled = Column(Boolean, default=False)
+    action_rules = Column(JSON, nullable=False, default=list)
+
+# --- NEW PYDANTIC MODELS FOR AI SETTINGS ---
+class AISettingsBase(BaseModel):
+    alert_enabled: bool = False
+    alert_channels: List[str] = Field(default_factory=list)
+    slack_webhook_url: Optional[str] = None
+    email_recipients: List[str] = Field(default_factory=list)
+    alert_threshold_zscore: float = 2.0
+    alert_cooldown_minutes: int = 5
+    action_enabled: bool = False
+    action_rules: List[Dict] = Field(default_factory=list)
+
+class AISettingsCreate(AISettingsBase):
+    pass
+
+class AISettingsResponse(AISettingsBase):
+    id: int
     class Config:
         from_attributes = True

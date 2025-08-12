@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx, waf, license
+from api import services, logs, settings, dashboard, certificates, health, pools, auth, monitors, gslb, nginx, waf, license, ai_config
 from core.health_checker import health_check_task
 from core.database import engine, Base, AsyncSessionLocal
 from core import crud
@@ -76,6 +76,7 @@ app.include_router(gslb.router)
 app.include_router(nginx.router)
 app.include_router(waf.router)
 app.include_router(license.router)
+app.include_router(ai_config.router)
 
 @app.get("/api/version")
 def get_version():

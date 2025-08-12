@@ -1,4 +1,5 @@
 from pydantic import BaseSettings, Field
+from typing import Optional, List, Dict
 
 
 class Settings(BaseSettings):
@@ -10,6 +11,18 @@ class Settings(BaseSettings):
         env="METRIC_QUERY"
     )
     lookback_minutes: int = Field(10, env="LOOKBACK_MINUTES")
+
+    # New Alerting Settings
+    ALERT_ENABLED: bool = Field(False)
+    ALERT_CHANNELS: List[str] = Field([]) # e.g., ["slack", "email"]
+    SLACK_WEBHOOK_URL: Optional[str] = Field(None)
+    EMAIL_RECIPIENTS: List[str] = Field([]) # e.g., ["user@example.com"]
+    ALERT_THRESHOLD_ZSCORE: float = Field(2.0)
+    ALERT_COOLDOWN_MINUTES: int = Field(5)
+
+    # New Actioning Settings
+    ACTION_ENABLED: bool = Field(False)
+    ACTION_RULES: List[Dict] = Field([]) # List of dictionaries for rules
 
     class Config:
         env_file = None
