@@ -40,7 +40,6 @@ const secondaryMenuItems = [
     { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' },
     { text: 'User Management', icon: <SupervisedUserCircleIcon />, path: '/admin' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-    { text: 'AI Settings', icon: <PsychologyIcon />, path: '/ai-config' },
 ];
 
 const Layout = ({ children }) => {
@@ -50,25 +49,6 @@ const Layout = ({ children }) => {
     const [versionInfo, setVersionInfo] = useState({ version: '', build_date: '', commit: '' });
     const [aboutOpen, setAboutOpen] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
-    const [aiEnabled, setAiEnabled] = useState(false);
-
-    // Fetch AI config
-    useEffect(() => {
-        const fetchAiConfig = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                const response = await axios.get(`${API_URL}/ai_config`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (response.data && response.data.alert_enabled) {
-                    setAiEnabled(true);
-                }
-            } catch (error) {
-                console.error("Could not fetch AI config", error);
-            }
-        };
-        if (user) fetchAiConfig();
-    }, [user]);
 
     const handleMenu = (event) => {
         setAnchorEl(event.currentTarget);
@@ -215,9 +195,7 @@ const Layout = ({ children }) => {
                     </List>
                     <Divider />
                     <List>
-                        {secondaryMenuItems
-                        .filter(item => aiEnabled || item.text !== 'AI Settings')
-                        .map((item) => (
+                        {secondaryMenuItems.map((item) => (
                             <ListItem key={item.text} disablePadding>
                                 <ListItemButton component={NavLink} to={item.path}
                                     disabled={((licenseType === 'none' || licenseType === 'trial') && [
@@ -246,7 +224,7 @@ const Layout = ({ children }) => {
                 height: '100vh', overflow: 'auto'
             }}>
                 <Toolbar />
-                {React.cloneElement(children, { licenseType: licenseType, aiEnabled: aiEnabled })}
+                {React.cloneElement(children, { licenseType: licenseType })}
             </Box>
 
             {/* About Dialog */}

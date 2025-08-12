@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { 
+import api from '../api'; // Use the api instance
+import {
   Grid, Paper, Typography, Box, CircularProgress, Alert,
   Card, CardContent
 } from '@mui/material';
@@ -16,6 +16,7 @@ import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale, ArcElement
 } from 'chart.js';
+import { LineChart, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, Line as RechartsLine, ResponsiveContainer } from 'recharts';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale, ArcElement);
 
@@ -120,9 +121,11 @@ const Dashboard = () => {
     }]
   });
 
+  const [anomalyChartData, setAnomalyChartData] = useState([]);
+
   const fetchData = useCallback(async () => {
     try {
-        const response = await axios.get(`${API_URL}/dashboard`);
+        const response = await api.get(`/dashboard`);
         const data = response.data;
         setStats(data);
 
@@ -132,8 +135,10 @@ const Dashboard = () => {
             
             const newConnectionsData = [...prevData.datasets[0].data, data.stats.active_connections];
 
-            const lastTotalRequests = prevData.datasets[1].totalRequests || 0;
-            const requestsInInterval = data.stats.requests - lastTotalRequests;
+            // Calculate requests per interval using the difference from the previous total
+            const prevTotalRequests = prevData.datasets[1].totalRequests || 0;
+            const currentTotalRequests = data.stats.requests;
+            const requestsInInterval = currentTotalRequests - prevTotalRequests;
             const newRequestsData = [...prevData.datasets[1].data, requestsInInterval >= 0 ? requestsInInterval : 0];
 
             if (newLabels.length > MAX_DATA_POINTS) {
@@ -146,7 +151,7 @@ const Dashboard = () => {
               labels: newLabels,
               datasets: [
                 { ...prevData.datasets[0], data: newConnectionsData },
-                { ...prevData.datasets[1], data: newRequestsData, totalRequests: data.stats.requests }
+                { ...prevData.datasets[1], data: newRequestsData, totalRequests: currentTotalRequests }
               ]
             };
         });
@@ -174,11 +179,35 @@ const Dashboard = () => {
     }
   }, [error]);
 
+  const fetchAnomalyData = useCallback(async () => {
+    try {
+      const response = await api.get(`/ai_config/anomalies`);
+      // Assuming response.data is an object with an 'anomalies' array
+      const anomalies = response.data.anomalies || [];
+      // Format data for Recharts
+      const formattedData = anomalies.map(anomaly => ({
+        timestamp: new Date(anomaly.ts + 'Z').toLocaleTimeString(), // Convert ISO timestamp (UTC) to local readable time
+        value: anomaly.value,
+        zscore: anomaly.z,
+        method: anomaly.method,
+        metric: anomaly.metric,
+      }));
+      setAnomalyChartData(formattedData);
+    } catch (err) {
+      console.error("Failed to fetch anomaly data:", err);
+      // Handle error, maybe set an error state for anomaly data specifically
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    fetchAnomalyData();
+    const interval = setInterval(() => {
+      fetchData();
+      fetchAnomalyData();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, fetchAnomalyData]);
 
   return (
     <Box>
@@ -243,6 +272,35 @@ const Dashboard = () => {
                   <Doughnut data={statusCodeData} />
                 </Box>
               </Paper>
+          </Grid>
+
+          {/* AI Anomaly Chart */}
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, height: '400px' }}>
+              <Typography variant="h6" gutterBottom>AI Anomaly Detection</Typography>
+              <Box sx={{ height: '320px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={anomalyChartData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="timestamp" />
+                    <YAxis dataKey="value" domain={[0, 1]} />
+                    <YAxis dataKey="zscore" orientation="right" stroke="#82ca9d" domain={[0, 5]} />
+                    <RechartsTooltip />
+                    <RechartsLegend />
+                    <RechartsLine type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
+                    <RechartsLine type="monotone" dataKey="zscore" stroke="#82ca9d" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
           </Grid>
         </Grid>
       )}

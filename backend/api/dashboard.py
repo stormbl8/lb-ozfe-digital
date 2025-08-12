@@ -82,6 +82,34 @@ async def get_nginx_stub_stats():
         pass
     return stats
 
+async def get_prometheus_nginx_metrics(client: httpx.AsyncClient) -> Dict[str, Any]:
+    metrics = {
+        "active_connections": 0,
+        "total_requests": 0,
+    }
+    prometheus_url = "http://prometheus:9090/api/v1/query"
+
+    try:
+        # Query for active connections
+        response_active = await client.get(prometheus_url, params={"query": "nginx_connections_active"})
+        response_active.raise_for_status()
+        data_active = response_active.json()
+        if data_active["status"] == "success" and data_active["data"]["result"]:
+            # The value is a list [timestamp, value_string]
+            metrics["active_connections"] = int(float(data_active["data"]["result"][0]["value"][1]))
+
+        # Query for total requests
+        response_requests = await client.get(prometheus_url, params={"query": "nginx_http_requests_total"})
+        response_requests.raise_for_status()
+        data_requests = response_requests.json()
+        if data_requests["status"] == "success" and data_requests["data"]["result"]:
+            metrics["total_requests"] = int(float(data_requests["data"]["result"][0]["value"][1]))
+
+    except httpx.RequestError as e:
+        print(f"Error querying Prometheus: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    return metrics
 
 @router.get("")
 async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
@@ -90,15 +118,24 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     """
     services = await crud.get_services(db)
     service_count = len(services)
-    
-    nginx_status, nginx_stats = await asyncio.gather(
-        run_in_threadpool(get_nginx_status_sync),
-        get_nginx_stub_stats()
-    )
-        
+
+    async with httpx.AsyncClient() as client:
+        nginx_status, nginx_stub_stats, prometheus_nginx_metrics = await asyncio.gather(
+            run_in_threadpool(get_nginx_status_sync),
+            get_nginx_stub_stats(), # Keep this for now, will remove later if not needed
+            get_prometheus_nginx_metrics(client)
+        )
+
+    # Combine stats, prioritizing Prometheus metrics for active connections and total requests
+    combined_stats = {
+        **nginx_stub_stats, # Start with stub stats
+        "active_connections": prometheus_nginx_metrics["active_connections"],
+        "requests": prometheus_nginx_metrics["total_requests"], # Overwrite with Prometheus data
+    }
+
     return {
         "service_count": service_count,
         "nginx_status": nginx_status,
         "api_status": "Running",
-        "stats": nginx_stats,
+        "stats": combined_stats,
     }

@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select # NEW
 from typing import List, Dict, Any
+import requests
 
 from core.database import get_db
 from core import models, crud
 from core.security import get_current_admin_user
 from core.models import User
 from core.models import AISettings, AISettingsCreate, AISettingsResponse
+from core.config import settings # Import backend settings
 
 router = APIRouter(
     prefix="/api/ai_config",
@@ -66,3 +68,20 @@ async def update_ai_settings(
     await db.commit()
     await db.refresh(ai_settings)
     return ai_settings
+
+@router.get("/anomalies")
+async def get_ai_anomalies(
+    current_user: User = Depends(get_current_admin_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+
+    ai_agent_url = settings.AI_AGENT_URL + "/anomalies"
+    headers = {"X-API-Token": settings.AI_AGENT_API_TOKEN}
+
+    try:
+        response = requests.get(ai_agent_url, headers=headers, timeout=5)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch anomalies from AI agent: {e}")
