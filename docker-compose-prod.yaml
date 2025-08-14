@@ -1,20 +1,21 @@
 volumes:
   app_data:
   postgres_data:
+  grafana_data:
 
 services:
   frontend:
-    image: your_registry/lb-ui-frontend:latest
-    container_name: lb-ui-frontend
+    build: ./frontend
+    container_name: ${FRONTEND_CONTAINER_NAME}
     ports:
-      - "88:88"
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     restart: unless-stopped
     networks:
       - app-network
 
   backend:
-    image: your_registry/lb-ui-backend:latest
-    container_name: lb-ui-backend
+    build: ./backend
+    container_name: ${BACKEND_CONTAINER_NAME}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - app_data:/data
@@ -29,29 +30,41 @@ services:
       - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - postgres
+        # condition: service_healthy
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     networks:
       - app-network
   nginx:
-    image: your_registry/nginx-proxy:latest
-    container_name: nginx-proxy
+    build: ./nginx
+    container_name: ${NGINX_CONTAINER_NAME}
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "10000-10100:10000-10100/tcp"
-      - "10000-10100:10000-10100/udp"
+      - "${NGINX_HTTP_PORT}:${NGINX_HTTP_PORT}"
+      - "${NGINX_HTTPS_PORT}:${NGINX_HTTPS_PORT}"
+      - "${NGINX_STREAM_PORT_RANGE}:${NGINX_STREAM_PORT_RANGE}/tcp"
+      - "${NGINX_STREAM_PORT_RANGE}:${NGINX_STREAM_PORT_RANGE}/udp"
     volumes:
       # Mount the entire app_data volume to /data
       - app_data:/data
     networks:
       - app-network
 
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:${NGINX_EXPORTER_VERSION}
+    container_name: ${NGINX_EXPORTER_CONTAINER_NAME}
+    command: -nginx.scrape-uri=http://nginx:8081/nginx_status
+    ports:
+      - "${NGINX_EXPORTER_PORT}:${NGINX_EXPORTER_PORT}" # Exporter default port
+    networks:
+      - app-network
+    depends_on:
+      - nginx # Ensure NGINX is up before exporter starts
+
   postgres:
-    image: postgres:15-alpine
-    container_name: lb-ui-postgres
+    image: postgres:${POSTGRES_VERSION}
+    container_name: ${POSTGRES_CONTAINER_NAME}
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -62,19 +75,46 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - DATABASE_URL=${DATABASE_URL}
-  # ai-agent:
-  #   image: your_registry/ai-agent:latest
-  #   container_name: ai-agent
-  #   environment:
-  #     PROMETHEUS_URL: "http://prometheus:9090"
-  #     API_TOKEN: "replace-with-a-strong-token"
-  #     SCRAPE_INTERVAL_SEC: "30"
-  #     METRIC_QUERY: 'sum(rate(nginx_http_requests_total[1m]))'
-  #     LOOKBACK_MINUTES: "10"
-  #   networks:
-  #     - app-network
-  #   ports:
-  #     - "5000:5000"  # optional: expose to host if you want to browse; keep internal if you prefer
+  ai-agent:
+    build: ./ai-agent
+    container_name: ${AI_AGENT_CONTAINER_NAME}
+    environment:
+      PROMETHEUS_URL: "${PROMETHEUS_URL}"
+      API_TOKEN: "${AI_AGENT_API_TOKEN}"
+      SCRAPE_INTERVAL_SEC: "${AI_AGENT_SCRAPE_INTERVAL_SEC}"
+      METRIC_QUERY: "${AI_AGENT_METRIC_QUERY}"
+      LOOKBACK_MINUTES: "${AI_AGENT_LOOKBACK_MINUTES}"
+    networks:
+      - app-network
+    ports:
+      - "${AI_AGENT_PORT}:${AI_AGENT_PORT}"  # optional: expose to host if you want to browse; keep internal if you prefer
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION}
+    container_name: ${PROMETHEUS_CONTAINER_NAME}
+    volumes:
+      - ./prometheus/ai-agent-scrap.yaml:/etc/prometheus/prometheus.yml
+    command: --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION}
+    container_name: ${GRAFANA_CONTAINER_NAME}
+    ports:
+      - "${GRAFANA_PORT}:${GRAFANA_PORT}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
 
 networks:
   app-network:

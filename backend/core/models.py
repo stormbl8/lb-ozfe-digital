@@ -79,7 +79,23 @@ class Service(Base):
     # NEW FIELD
     waf_ruleset_id = Column(Integer, ForeignKey("waf_rulesets.id"), nullable=True)
     
-    session_persistence = Column(Boolean, default=False)
+    sticky_sessions_enabled = Column(Boolean, default=False)
+    sticky_cookie_name = Column(String, nullable=True)
+    # NEW FIELDS FOR STICKY SESSIONS AND DDOS PROTECTION
+    sticky_session_type = Column(String, nullable=True) # 'cookie' or 'ip_hash'
+    ddos_protection_enabled = Column(Boolean, default=False)
+    max_connections_per_ip = Column(Integer, nullable=True)
+    client_body_timeout = Column(Integer, nullable=True)
+    client_header_timeout = Column(Integer, nullable=True)
+    send_timeout = Column(Integer, nullable=True)
+    rate_limiting_enabled = Column(Boolean, default=False)
+    rate_limiting_type = Column(String, nullable=True)
+    rate_limiting_rate = Column(String, nullable=True)
+    rate_limiting_burst = Column(Integer, nullable=True)
+    rate_limiting_nodelay = Column(Boolean, default=False)
+    rate_limiting_connections = Column(Integer, nullable=True)
+
+    path_routing_rules = Column(JSON, nullable=False, default=list) # NEW FIELD
     certificate_name = Column(String, default="dummy")
     force_ssl = Column(Boolean, default=False)
     http2_support = Column(Boolean, default=False)
@@ -143,6 +159,11 @@ class BackendServer(BaseModel):
     port: int
     max_fails: int = 3
     fail_timeout: str = "10s"
+    weight: int = 1
+
+class PathRoutingRule(BaseModel):
+    path: str = Field(..., description="URL path to match (e.g., /api/v1/users).")
+    target_pool_id: int = Field(..., description="ID of the pool to route to for this path.")
 
 class MonitorBase(BaseModel):
     name: str
@@ -165,7 +186,8 @@ class MonitorResponse(MonitorBase):
 class PoolBase(BaseModel):
     name: str
     backend_servers: List[BackendServer]
-    load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash"]
+    load_balancing_algorithm: Literal["round_robin", "least_conn", "ip_hash", "weighted_least_conn", "url_hash"]
+    url_hash_key: Optional[str] = None
     monitor_id: Optional[int] = None
 
 class PoolCreate(PoolBase):
@@ -240,7 +262,20 @@ class ServiceBase(BaseModel):
     websockets_support: bool = True
     waf_enabled: bool = False
     waf_ruleset_id: Optional[int] = None # NEW FIELD
-    session_persistence: bool = False
+    sticky_sessions_enabled: bool = False
+    sticky_cookie_name: Optional[str] = None
+    # NEW FIELDS FOR STICKY SESSIONS AND DDOS PROTECTION
+    sticky_session_type: Optional[Literal["cookie", "ip_hash"]] = None
+    
+    # NEW FIELDS FOR ADVANCED RATE LIMITING
+    rate_limiting_enabled: bool = False
+    rate_limiting_type: Optional[Literal["requests", "connections"]] = None
+    rate_limiting_rate: Optional[str] = None # e.g., "10r/s", "5r/m"
+    rate_limiting_burst: Optional[int] = None
+    rate_limiting_nodelay: bool = False
+    rate_limiting_connections: Optional[int] = None # For limit_conn
+
+    path_routing_rules: List[PathRoutingRule] = Field(default_factory=list) # NEW FIELD
     certificate_name: str = "dummy"
     force_ssl: bool = False
     http2_support: bool = False
@@ -258,10 +293,10 @@ class ServiceResponse(ServiceBase):
     class Config:
         from_attributes = True
 
-class RateLimitSettings(BaseModel):
+class RateLimitingSettings(BaseModel):
     enabled: bool = False
-    requests_per_second: int = Field(default=10, gt=0)
-    burst: int = Field(default=20, gt=0)
+    requests_per_second: Optional[int] = 10
+    burst: int = 5 # Default burst value
 
 class AppSettings(BaseModel):
     management_ip_v4: Optional[str] = '192.168.0.100'
@@ -272,10 +307,10 @@ class AppSettings(BaseModel):
     root_account_password_set: bool = False
     ssh_access_enabled: bool = False
     ssh_ip_allow: Optional[str] = '0.0.0.0/0'
-    rate_limiting: RateLimitSettings = Field(default_factory=RateLimitSettings)
     # FIX: Add Cloudflare settings to the editable settings model
     cloudflare_email: str = ''
     cloudflare_api_key: str = ''
+    rate_limiting: RateLimitingSettings = Field(default_factory=RateLimitingSettings)
 
 
 class LicenseDetails(BaseModel):

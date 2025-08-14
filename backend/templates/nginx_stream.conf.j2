@@ -1,15 +1,18 @@
 # Managed by Load Balancer UI for: {{ service.service_type | upper }} Stream on port {{ service.listen_port }}
 
-upstream stream_pool_{{ service.id }} {
-    # --- THIS IS THE FIX ---
-    # Loop over the pool's backend servers, not the service's.
-    {% for server in pool.backend_servers %}
-    server {{ server.host }}:{{ server.port }};
-    {% endfor %}
-}
-
 server {
     listen {{ service.listen_port }}{% if service.service_type == 'udp' %} udp{% endif %};
+
+    # Access Control for Stream Services
+    {% if service.access_list_ips %}
+        {% for ip in service.access_list_ips %}
+            {% if ip.strip() %}
+    {{ service.access_list_type }} {{ ip.strip() }};
+            {% endif %}
+        {% endfor %}
+    deny all;
+    {% endif %}
+
     proxy_pass stream_pool_{{ service.id }};
     proxy_timeout 10m;
     proxy_connect_timeout 5s;

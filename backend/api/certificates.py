@@ -129,3 +129,29 @@ async def upload_certificate(file: UploadFile, admin_user: models.User = Depends
         return {"message": f"Certificate files for {cert_name} uploaded successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload certificate: {e}")
+
+@router.post("/upload-files")
+async def upload_certificate_files(cert_name: str, fullchain_file: UploadFile, privkey_file: UploadFile, admin_user: models.User = Depends(get_current_admin_user)):
+    """
+    Allows uploading fullchain.pem and privkey.pem files directly for a given certificate name.
+    """
+    if not cert_name:
+        raise HTTPException(status_code=400, detail="Certificate name cannot be empty.")
+
+    cert_dir = os.path.join(LETSENCRYPT_DIR, cert_name)
+    os.makedirs(cert_dir, exist_ok=True)
+
+    try:
+        # Save fullchain.pem
+        fullchain_path = os.path.join(cert_dir, "fullchain.pem")
+        with open(fullchain_path, "wb") as f:
+            f.write(await fullchain_file.read())
+
+        # Save privkey.pem
+        privkey_path = os.path.join(cert_dir, "privkey.pem")
+        with open(privkey_path, "wb") as f:
+            f.write(await privkey_file.read())
+
+        return {"message": f"Certificate files for {cert_name} uploaded successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload certificate files: {e}")

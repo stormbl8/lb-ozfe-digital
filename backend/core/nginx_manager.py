@@ -9,7 +9,8 @@ from passlib.apache import HtpasswdFile
 from typing import Optional # NEW IMPORT
 
 from . import crud
-from .models import Service, Pool, WAFRuleSet
+from .models import Service, Pool, WAFRuleSet, AppSettings # Import AppSettings
+from .settings_manager import load_settings # Import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +20,23 @@ HTPASSWD_DIR = "/data/htpasswd"
 WAF_CONFIG_DIR = "/data/waf"
 WAF_EXCLUSION_FILE = "modsecurity_exclude.conf"
 
-def render_http_config(service: Service, pool: Pool, waf_ruleset: Optional[WAFRuleSet]) -> str:
+def render_http_config(service: Service, pool: Pool, waf_ruleset: Optional[WAFRuleSet], app_settings: AppSettings) -> str:
     template_loader = jinja2.FileSystemLoader(searchpath="./templates")
     template_env = jinja2.Environment(loader=template_loader)
     template = template_env.get_template("nginx.conf.j2")
-    return template.render(service=service, pool=pool, waf_ruleset=waf_ruleset)
+    return template.render(service=service, pool=pool, waf_ruleset=waf_ruleset, app_settings=app_settings)
 
 def render_stream_config(service: Service, pool: Pool) -> str:
     template_loader = jinja2.FileSystemLoader(searchpath="./templates")
     template_env = jinja2.Environment(loader=template_loader)
     template = template_env.get_template("nginx_stream.conf.j2")
     return template.render(service=service, pool=pool)
+
+def render_upstreams_config(pools: list[Pool], stream_services: list[Service]) -> str:
+    template_loader = jinja2.FileSystemLoader(searchpath="./templates")
+    template_env = jinja2.Environment(loader=template_loader)
+    template = template_env.get_template("upstreams.conf.j2")
+    return template.render(pools=pools, stream_services=stream_services)
 
 def reload_nginx():
     """Attempts to test and reload NGINX configuration for the local container."""
@@ -69,6 +76,7 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
     waf_rulesets = await crud.get_waf_rulesets(db)
     pools_by_id = {pool.id: pool for pool in pools}
     waf_rulesets_by_id = {ws.id: ws for ws in waf_rulesets}
+    app_settings = load_settings() # Load app settings
 
     os.makedirs(CONFIG_DIR, exist_ok=True)
     os.makedirs(STREAM_CONFIG_DIR, exist_ok=True)
@@ -78,10 +86,14 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
     for dir_path in [CONFIG_DIR, STREAM_CONFIG_DIR]:
         for f in os.listdir(dir_path):
             os.remove(os.path.join(dir_path, f))
-    
+
     waf_exclusion_path = os.path.join(WAF_CONFIG_DIR, WAF_EXCLUSION_FILE)
     if os.path.exists(waf_exclusion_path):
         os.remove(waf_exclusion_path)
+
+    # --- NEW CODE START ---
+    unique_http_pools = {}
+    stream_services = []
 
     for service in services:
         if not service.enabled:
@@ -93,16 +105,41 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
                 f"'{pool.name if pool else 'N/A'}' has no backend servers. Skipping config generation."
             )
             continue
-        
+
+        if service.service_type == "http":
+            unique_http_pools[pool.id] = pool
+        else: # stream service
+            # Attach the pool object to the service for easier access in the template
+            service.pool = pool
+            stream_services.append(service)
+
+    # Generate and write upstreams.conf
+    upstreams_config_content = render_upstreams_config(list(unique_http_pools.values()), stream_services)
+    upstreams_config_path = os.path.join(CONFIG_DIR, "upstreams.conf") # Write to CONFIG_DIR
+    with open(upstreams_config_path, "w") as f:
+        f.write(upstreams_config_content)
+    # --- NEW CODE END ---
+
+    for service in services:
+        if not service.enabled:
+            continue
+        pool = pools_by_id.get(service.pool_id)
+        if not pool or not pool.backend_servers:
+            logger.warning(
+                f"Service '{service.domain_name or service.id}' is enabled but its pool "
+                f"'{pool.name if pool else 'N/A'}' has no backend servers. Skipping config generation."
+            )
+            continue
+
         waf_ruleset = waf_rulesets_by_id.get(service.waf_ruleset_id)
 
         try:
             if service.service_type == "http":
-                config_content = render_http_config(service, pool, waf_ruleset)
+                config_content = render_http_config(service, pool, waf_ruleset, app_settings) # Pass app_settings
                 config_path = os.path.join(CONFIG_DIR, f"{service.id}-{service.domain_name}.conf")
                 with open(config_path, "w") as f:
                     f.write(config_content)
-                
+
                 htpasswd_path = os.path.join(HTPASSWD_DIR, f"service_{service.id}")
                 if service.basic_auth_user and service.basic_auth_pass:
                     htpasswd = HtpasswdFile(htpasswd_path, new=True)
@@ -116,7 +153,7 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
                 config_path = os.path.join(STREAM_CONFIG_DIR, f"{service.id}-stream.conf")
                 with open(config_path, "w") as f:
                     f.write(config_content)
-                    
+
         except Exception as e:
             logger.error(f"Failed to write config for service {service.id}: {e}")
 
@@ -130,4 +167,9 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
                     for rule_id in waf_ruleset.excluded_rule_ids:
                         f.write(f"SecRuleRemoveById {rule_id}\n")
 
-    reload_nginx()
+    try:
+        reload_nginx()
+    except HTTPException as e:
+        logger.error(f"NGINX reload failed after config generation: {e.detail}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during NGINX reload: {e}")

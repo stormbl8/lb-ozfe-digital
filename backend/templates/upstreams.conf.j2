@@ -1,0 +1,32 @@
+# Managed by Load Balancer UI - Global Upstreams
+
+{% for pool in pools %}
+upstream pool_{{ pool.id }} {
+    {% if pool.load_balancing_algorithm == 'url_hash' %}
+    hash $request_uri consistent;
+    {% elif pool.load_balancing_algorithm == 'ip_hash' %}
+    ip_hash;
+    {% elif pool.load_balancing_algorithm != 'round_robin' %}
+    {{ pool.load_balancing_algorithm }};
+    {% endif %}
+
+    # Loop through the backend servers and add them to the pool with health check parameters
+    {% for server in pool.backend_servers %}
+    server {{ server.host }}:{{ server.port }}{% if server.max_fails is not none %} max_fails={{ server.max_fails }}{% endif %}{% if server.fail_timeout %} fail_timeout={{ server.fail_timeout }}{% endif %}{% if server.weight is not none %} weight={{ server.weight }}{% endif %};
+    {% endfor %}
+}
+{% endfor %}
+
+{% for service in stream_services %}
+upstream stream_pool_{{ service.id }} {
+    {% if service.pool.load_balancing_algorithm == 'least_conn' %}
+    least_conn;
+    {% elif service.pool.load_balancing_algorithm == 'hash' %}
+    hash $remote_addr consistent; # Example for IP hash in stream
+    {% endif %}
+    # Loop over the pool's backend servers, not the service's.
+    {% for server in service.pool.backend_servers %}
+    server {{ server.host }}:{{ server.port }};
+    {% endfor %}
+}
+{% endfor %}

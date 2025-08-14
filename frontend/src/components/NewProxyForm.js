@@ -19,6 +19,13 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl, licenseType }) => {
         websockets_support: true,
         waf_enabled: false,
         waf_ruleset_id: '',
+        sticky_sessions_enabled: false,
+        sticky_session_type: 'cookie',
+        ddos_protection_enabled: false,
+        max_connections_per_ip: '',
+        client_body_timeout: '',
+        client_header_timeout: '',
+        send_timeout: '',
         certificate_name: 'dummy',
         force_ssl: true,
         http2_support: true,
@@ -177,8 +184,25 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl, licenseType }) => {
                         <FormGroup row>
                             <FormControlLabel control={<Checkbox checked={formData.websockets_support} onChange={handleChange} name="websockets_support" />} label="Websockets Support" />
                             <FormControlLabel control={<Checkbox checked={formData.waf_enabled} onChange={handleChange} name="waf_enabled" />} label="Enable WAF" />
+                            <FormControlLabel control={<Checkbox checked={formData.sticky_sessions_enabled} onChange={handleChange} name="sticky_sessions_enabled" />} label="Enable Sticky Sessions" />
                         </FormGroup>
                     </Grid>
+                    {formData.sticky_sessions_enabled && (
+                        <>
+                            <Grid item xs={12} md={6}>
+                                <TextField fullWidth label="Sticky Cookie Name" name="sticky_cookie_name" value={formData.sticky_cookie_name || ''} onChange={handleChange} helperText="Name of the cookie for session persistence" />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <FormControl component="fieldset" fullWidth>
+                                    <Typography variant="subtitle2" component="legend">Sticky Session Type</Typography>
+                                    <RadioGroup row name="sticky_session_type" value={formData.sticky_session_type} onChange={handleChange}>
+                                        <FormControlLabel value="cookie" control={<Radio />} label="Cookie-based" />
+                                        <FormControlLabel value="ip_hash" control={<Radio />} label="IP Hash" />
+                                    </RadioGroup>
+                                </FormControl>
+                            </Grid>
+                        </>
+                    )}
                     <Grid item xs={12}>
                         <FormControl fullWidth disabled={!formData.waf_enabled || licenseType !== 'full'}> {/* Disable if WAF not enabled or not full license */}
                             <InputLabel>WAF Ruleset</InputLabel>
@@ -202,6 +226,28 @@ const NewProxyForm = ({ editingService, onFinished, apiUrl, licenseType }) => {
                         </FormGroup>
                     </Grid>
                 
+                    {/* DDoS Protection Section */}
+                    <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">DDoS Protection</Typography></Grid>
+                    <Grid item xs={12}>
+                        <FormControlLabel control={<Checkbox checked={formData.ddos_protection_enabled} onChange={handleChange} name="ddos_protection_enabled" />} label="Enable Basic DDoS Protection" />
+                    </Grid>
+                    {formData.ddos_protection_enabled && (
+                        <>
+                            <Grid item xs={12} md={6}>
+                                <TextField fullWidth label="Max Connections per IP" name="max_connections_per_ip" type="number" value={formData.max_connections_per_ip || ''} onChange={handleChange} helperText="Limit concurrent connections from a single IP" />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField fullWidth label="Client Body Timeout (s)" name="client_body_timeout" type="number" value={formData.client_body_timeout || ''} onChange={handleChange} helperText="Timeout for client request body" />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField fullWidth label="Client Header Timeout (s)" name="client_header_timeout" type="number" value={formData.client_header_timeout || ''} onChange={handleChange} helperText="Timeout for client request header" />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField fullWidth label="Send Timeout (s)" name="send_timeout" type="number" value={formData.send_timeout || ''} onChange={handleChange} helperText="Timeout for sending response to client" />
+                            </Grid>
+                        </>
+                    )}
+
                     {/* Access Section */}
                     <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="h6">Access</Typography></Grid>
                     <Grid item xs={12} md={6}><TextField fullWidth label="Basic Auth Username" name="basic_auth_user" value={formData.basic_auth_user || ''} onChange={handleChange} /></Grid>
