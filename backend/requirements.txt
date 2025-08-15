@@ -1,4 +1,3 @@
-pydantic-settings
 fastapi
 uvicorn[standard]
 pydantic
