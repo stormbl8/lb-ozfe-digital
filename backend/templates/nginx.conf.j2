@@ -67,21 +67,13 @@ server {
         auth_basic_user_file /data/htpasswd/service_{{ service.id }};
     {% endif %}
 
-    # SSL Configuration
-    {% if service.certificate_name and service.certificate_name != 'dummy' %}
-    ssl_certificate /data/certs/letsencrypt/live/{{ service.certificate_name }}/fullchain.pem;
-    ssl_certificate_key /data/certs/letsencrypt/live/{{ service.certificate_name }}/privkey.pem;
-    {% else %}
-    ssl_certificate /data/certs/dummy/dummy.crt;
-    ssl_certificate_key /data/certs/dummy/dummy.key;
-    {% endif %}
-
     # HSTS Header
     {% if service.hsts_enabled %}
     add_header Strict-Transport-Security "max-age=31536000{% if service.hsts_subdomains %}; includeSubDomains{% endif %}" always;
     {% endif %}
 
     location / {
+        limit_req zone=mylimit burst={{ app_settings.rate_limiting.burst }} nodelay;
         proxy_pass {{ service.forward_scheme }}://pool_{{ pool.id }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

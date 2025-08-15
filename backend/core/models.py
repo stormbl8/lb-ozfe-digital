@@ -261,7 +261,7 @@ class ServiceResponse(ServiceBase):
 class RateLimitSettings(BaseModel):
     enabled: bool = False
     requests_per_second: int = Field(default=10, gt=0)
-    burst: int = Field(default=20, gt=0)
+    burst: int = Field(default=20, ge=0)
 
 class AppSettings(BaseModel):
     management_ip_v4: Optional[str] = '192.168.0.100'

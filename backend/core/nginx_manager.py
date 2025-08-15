@@ -9,7 +9,8 @@ from passlib.apache import HtpasswdFile
 from typing import Optional # NEW IMPORT
 
 from . import crud
-from .models import Service, Pool, WAFRuleSet
+from .models import Service, Pool, WAFRuleSet, AppSettings # Import AppSettings
+from .settings_manager import load_settings # Import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
     waf_rulesets = await crud.get_waf_rulesets(db)
     pools_by_id = {pool.id: pool for pool in pools}
     waf_rulesets_by_id = {ws.id: ws for ws in waf_rulesets}
+    app_settings = load_settings() # Load app settings
 
     os.makedirs(CONFIG_DIR, exist_ok=True)
     os.makedirs(STREAM_CONFIG_DIR, exist_ok=True)
@@ -98,7 +100,7 @@ async def regenerate_configs_for_datacenter(db: AsyncSession, datacenter_id: int
 
         try:
             if service.service_type == "http":
-                config_content = render_http_config(service, pool, waf_ruleset)
+                config_content = render_http_config(service, pool, waf_ruleset, app_settings) # Pass app_settings
                 config_path = os.path.join(CONFIG_DIR, f"{service.id}-{service.domain_name}.conf")
                 with open(config_path, "w") as f:
                     f.write(config_content)
