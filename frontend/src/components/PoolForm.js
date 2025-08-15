@@ -99,7 +99,6 @@ const PoolForm = ({ editingPool, onFinished, apiUrl }) => {
                             <MenuItem value="round_robin">Round Robin</MenuItem>
                             <MenuItem value="least_conn">Least Connections</MenuItem>
                             <MenuItem value="ip_hash">IP Hash</MenuItem>
-                            <MenuItem value="hash">Hash</MenuItem>
                         </Select>
                     </FormControl>
                 </Grid>

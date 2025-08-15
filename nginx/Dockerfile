@@ -78,12 +78,10 @@ RUN sed -i '1s/^/load_module modules\/ngx_http_modsecurity_module.so;\n/' /etc/n
 RUN sed -i '1s/^/load_module modules\/ngx_http_geoip2_module.so;\n/' /etc/nginx/nginx.conf
 
 # --- FIX: Add logging directives to the main nginx.conf http block ---
-RUN sed -i '/http {/a \
-    access_log \/data\/logs\/nginx\/access.log;\n    error_log \/data\/logs\/nginx\/error.log warn;\n' /etc/nginx/nginx.conf
+RUN sed -i '/http {/a \\n    access_log \/data\/logs\/nginx\/access.log;\n    error_log \/data\/logs\/nginx\/error.log warn;\n' /etc/nginx/nginx.conf
 
 # Copy our custom Nginx configuration to the conf.d directory
 COPY ./ozfedigital-lb.conf /etc/nginx/conf.d/
-COPY ./conf.d/rate_limit.conf /etc/nginx/conf.d/
 
 # Create the required directories on the host volume
 RUN mkdir -p /data/nginx_proxy_configs /data/nginx_stream_configs /data/certs/dummy /data/logs/nginx /data/waf /data/geoip && \

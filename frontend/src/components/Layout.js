@@ -40,7 +40,6 @@ const secondaryMenuItems = [
     { text: 'Licenses', icon: <VerifiedUserIcon />, path: '/licenses' },
     { text: 'User Management', icon: <SupervisedUserCircleIcon />, path: '/admin' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-    { text: 'AI Settings', icon: <PsychologyIcon />, path: '/ai-config' },
 ];
 
 const Layout = ({ children }) => {

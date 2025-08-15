@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select # NEW
 from typing import List, Dict, Any
+import requests
 
 from core.database import get_db
 from core import models, crud
 from core.security import get_current_admin_user
 from core.models import User
 from core.models import AISettings, AISettingsCreate, AISettingsResponse
+from core.config import settings # Import backend settings
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/ai_config",
+    tags=["AI Config"]
+)
 
-@router.get("/ai_config", response_model=AISettingsResponse)
-def get_ai_settings(
+@router.get("/", response_model=AISettingsResponse)
+async def get_ai_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user)
 ):
@@ -20,7 +26,7 @@ def get_ai_settings(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Try to get the single AI settings row
-    ai_settings = db.query(AISettings).first()
+    ai_settings = (await db.execute(select(AISettings))).scalars().first()
     if not ai_settings:
         # If no settings exist, create a default one
         default_settings = AISettings(
@@ -34,13 +40,13 @@ def get_ai_settings(
             action_rules=[]
         )
         db.add(default_settings)
-        db.commit()
-        db.refresh(default_settings)
+        await db.commit()
+        await db.refresh(default_settings)
         return default_settings
     return ai_settings
 
-@router.put("/ai_config", response_model=AISettingsResponse)
-def update_ai_settings(
+@router.put("/", response_model=AISettingsResponse)
+async def update_ai_settings(
     settings_in: AISettingsCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user)
@@ -49,7 +55,7 @@ def update_ai_settings(
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
-    ai_settings = db.query(AISettings).first()
+    ai_settings = (await db.execute(select(AISettings))).scalars().first()
     if not ai_settings:
         # This case should ideally not happen if GET creates a default, but for robustness
         ai_settings = AISettings()
@@ -59,6 +65,23 @@ def update_ai_settings(
     for field, value in settings_in.dict(exclude_unset=True).items():
         setattr(ai_settings, field, value)
 
-    db.commit()
-    db.refresh(ai_settings)
+    await db.commit()
+    await db.refresh(ai_settings)
     return ai_settings
+
+@router.get("/anomalies")
+async def get_ai_anomalies(
+    current_user: User = Depends(get_current_admin_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+
+    ai_agent_url = settings.AI_AGENT_URL + "/anomalies"
+    headers = {"X-API-Token": settings.AI_AGENT_API_TOKEN}
+
+    try:
+        response = requests.get(ai_agent_url, headers=headers, timeout=5)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch anomalies from AI agent: {e}")
